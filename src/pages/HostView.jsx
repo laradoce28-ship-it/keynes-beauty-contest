@@ -36,12 +36,9 @@ export default function HostView() {
   // Poll every 4s while a round is open
   useEffect(() => {
     if (!pin || !sessionId) return
-    const isOpen = hostData?.current?.status === 'open'
-    if (isOpen) {
-      pollRef.current = setInterval(() => fetchHostState(pin), 4000)
-    }
+    pollRef.current = setInterval(() => fetchHostState(pin), 4000)
     return () => clearInterval(pollRef.current)
-  }, [pin, sessionId, hostData?.current?.status, fetchHostState])
+  }, [pin, sessionId, fetchHostState])
 
   async function handlePinSubmit() {
     setPinErr('')
