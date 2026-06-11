@@ -136,73 +136,73 @@ export default function HostView() {
     <div className="wrap host">
       <div className="eyebrow">Concurso de belleza de Keynes · objetivo = ⅔ del promedio</div>
       <h1>Panel del anfitrión</h1>
-      <p className="lede">
-        Cada participante anota un número de 0 a 100 (decimales permitidos). Gana quien más se acerque a{' '}
-        <strong>dos tercios del promedio</strong> del grupo. El equilibrio teórico es 0;
-        ronda a ronda el grupo suele acercarse a él.
-      </p>
 
       {/* QR + participants card */}
-      <div className="card" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flexShrink: 0, background: '#fff', padding: 10, border: '1px solid var(--line)', borderRadius: 12 }}>
-          <QRCodeSVG value={PARTICIPANT_URL} size={120} />
+      <div className="card" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'start' }}>
+        {/* QR */}
+        <div style={{ flexShrink: 0, background: '#fff', padding: 12, border: '1px solid var(--line)', borderRadius: 14 }}>
+          <QRCodeSVG value={PARTICIPANT_URL} size={150} />
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'var(--muted)', textAlign: 'center', marginTop: 8, letterSpacing: '.04em' }}>
+            Escanea para entrar
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
+        {/* Info */}
+        <div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
             Enlace para participantes
           </div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, fontWeight: 700, wordBreak: 'break-all', marginBottom: 12 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, wordBreak: 'break-all', marginBottom: 16 }}>
             {PARTICIPANT_URL}
           </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+            {participantNames.length} participante{participantNames.length !== 1 ? 's' : ''} registrado{participantNames.length !== 1 ? 's' : ''}
+          </div>
           {participantNames.length > 0 ? (
-            <>
-              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
-                {participantNames.length} participante{participantNames.length !== 1 ? 's' : ''} registrado{participantNames.length !== 1 ? 's' : ''}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, maxHeight: 110, overflowY: 'auto' }}>
-                {participantNames.map((name, i) => (
-                  <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '5px 11px', borderRadius: 999, background: '#F1EDE6', border: '1px solid var(--line)' }}>
-                    {name}
-                  </span>
-                ))}
-              </div>
-            </>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, maxHeight: 120, overflowY: 'auto' }}>
+              {participantNames.map((name, i) => (
+                <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '5px 12px', borderRadius: 999, background: '#F1EDE6', border: '1px solid var(--line)' }}>
+                  {name}
+                </span>
+              ))}
+            </div>
           ) : (
-            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aún no hay participantes registrados.</div>
+            <div style={{ color: 'var(--muted)', fontSize: 14 }}>Aún no hay participantes. Comparte el QR.</div>
           )}
         </div>
       </div>
 
       {/* Round control card */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 24 }}>
           <div>
-            <div className="status">
+            <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 800, fontSize: 'clamp(22px, 3vw, 32px)', lineHeight: 1.1, marginBottom: 12 }}>
               Ronda {currentRoundNum}
-              {isOpen ? ' · abierta' : current ? ' · cerrada' : ' · sin abrir'}
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <span className={`pill ${isOpen ? 'open' : 'closed'}`}>
-                <span className="dot" />{isOpen ? 'Abierta' : 'Cerrada'}
+              <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
+                {isOpen ? ' · abierta' : current ? ' · cerrada' : ' · sin abrir'}
               </span>
             </div>
+            <span className={`pill ${isOpen ? 'open' : 'closed'}`} style={{ fontSize: 14, padding: '7px 16px' }}>
+              <span className="dot" />{isOpen ? 'Abierta' : 'Cerrada'}
+            </span>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div className="resp-count">{current?.count ?? 0} / {totalParticipants}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 4 }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 'clamp(42px, 6vw, 64px)', lineHeight: 1, color: isOpen ? 'var(--green)' : 'var(--ink)' }}>
+              {current?.count ?? 0}<span style={{ color: 'var(--line)' }}> /</span> {totalParticipants}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 6 }}>
               respuestas recibidas
             </div>
           </div>
         </div>
 
-        <div className="btn-row" style={{ marginTop: 18 }}>
+        <div className="btn-row" style={{ marginTop: 20 }}>
           {!isOpen && (
-            <button className="btn btn-primary" onClick={openRound} disabled={loading}>
+            <button className="btn btn-primary" onClick={openRound} disabled={loading} style={{ fontSize: 17, padding: '16px 24px' }}>
               {loading ? <><span className="spinner" />Abriendo…</> : `Abrir ronda ${currentRoundNum}`}
             </button>
           )}
           {isOpen && (
-            <button className="btn btn-dark" onClick={closeRound} disabled={loading}>
+            <button className="btn btn-dark" onClick={closeRound} disabled={loading} style={{ fontSize: 17, padding: '16px 24px' }}>
               {loading ? <><span className="spinner" />Cerrando…</> : 'Cerrar ronda y revelar'}
             </button>
           )}

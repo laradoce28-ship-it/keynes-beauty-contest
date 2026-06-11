@@ -18,7 +18,7 @@ body {
 }
 
 .wrap { margin: 0 auto; transition: max-width .2s ease; }
-.wrap.host { max-width: 880px; }
+.wrap.host { max-width: 1100px; }
 .wrap.part { max-width: 440px; }
 
 .eyebrow {
