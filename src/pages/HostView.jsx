@@ -61,6 +61,20 @@ export default function HostView() {
     await fetchHostState(pin)
   }
 
+  async function resetSession() {
+    if (!window.confirm('¿Borrar todas las rondas y participantes? Esta acción no se puede deshacer.')) return
+    setLoading(true)
+    const { error } = await supabase.rpc('host_reset_session', {
+      p_session: sessionId,
+      p_pin: pin,
+    })
+    setLoading(false)
+    if (error) { alert(error.message); return }
+    setHostData(null)
+    setShowNash(false)
+    await fetchHostState(pin)
+  }
+
   async function closeRound() {
     const current = hostData?.current
     if (!current) return
@@ -165,6 +179,19 @@ export default function HostView() {
 
       {/* Dashboard — only shown when there's at least one closed round */}
       {hasClosed && lastClosed && <Dashboard results={results} lastClosed={lastClosed} showNash={showNash} setShowNash={setShowNash} onNextRound={openRound} loading={loading} isOpen={isOpen} />}
+
+      {/* Reset */}
+      <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--line)' }}>
+        <button
+          className="btn btn-ghost"
+          style={{ color: 'var(--accent)', borderColor: 'var(--accent)', width: 'auto' }}
+          onClick={resetSession}
+          disabled={loading}
+        >
+          Reiniciar sesión desde cero
+        </button>
+        <p className="note" style={{ marginTop: 8 }}>Borra todas las rondas y participantes. Útil para pruebas.</p>
+      </div>
     </div>
   )
 }
