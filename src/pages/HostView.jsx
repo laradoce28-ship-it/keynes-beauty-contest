@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { supabase } from '../supabase'
 import { fmt1, winnersOf, buildLeaderboard, histogramSVG, trendSVG } from '../lib/gameCalc'
+
+const PARTICIPANT_URL = window.location.origin + '/'
 
 export default function HostView() {
   const [pinInput, setPinInput] = useState('')
@@ -123,6 +126,7 @@ export default function HostView() {
   const current = hostData?.current ?? null
   const results = hostData?.results ?? []
   const totalParticipants = hostData?.participants ?? 0
+  const participantNames = hostData?.participant_names ?? []
   const isOpen = current?.status === 'open'
   const hasClosed = results.length > 0
   const nextRoundNum = (current?.number ?? results.length) + (isOpen ? 1 : (current ? 0 : 0))
@@ -140,6 +144,37 @@ export default function HostView() {
         <strong>dos tercios del promedio</strong> del grupo. El equilibrio teórico es 0;
         ronda a ronda el grupo suele acercarse a él.
       </p>
+
+      {/* QR + participants card */}
+      <div className="card" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flexShrink: 0, background: '#fff', padding: 10, border: '1px solid var(--line)', borderRadius: 12 }}>
+          <QRCodeSVG value={PARTICIPANT_URL} size={120} />
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+            Enlace para participantes
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, fontWeight: 700, wordBreak: 'break-all', marginBottom: 12 }}>
+            {PARTICIPANT_URL}
+          </div>
+          {participantNames.length > 0 ? (
+            <>
+              <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                {participantNames.length} participante{participantNames.length !== 1 ? 's' : ''} registrado{participantNames.length !== 1 ? 's' : ''}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, maxHeight: 110, overflowY: 'auto' }}>
+                {participantNames.map((name, i) => (
+                  <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '5px 11px', borderRadius: 999, background: '#F1EDE6', border: '1px solid var(--line)' }}>
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Aún no hay participantes registrados.</div>
+          )}
+        </div>
+      </div>
 
       {/* Round control card */}
       <div className="card">
