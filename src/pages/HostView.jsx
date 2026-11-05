@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { rpc } from '../api'
+import Projector from './Projector'
 import { fmt1, fmtNum, winnersOf, buildLeaderboard, histogramSVG, trendSVG } from '../lib/gameCalc'
 
 const PARTICIPANT_URL = window.location.origin + '/'
@@ -17,7 +18,14 @@ export default function HostView() {
   const [showNash, setShowNash] = useState(false)
   const [loading, setLoading] = useState(false)
   const [offline, setOffline] = useState(false)
+  const [projector, setProjector] = useState(false)
   const pollRef = useRef(null)
+
+  // Bloquea el scroll de la página mientras el modo proyector está abierto
+  useEffect(() => {
+    document.body.classList.toggle('proj-open', projector)
+    return () => document.body.classList.remove('proj-open')
+  }, [projector])
 
   // Fetch default session on mount (reintenta si falla)
   useEffect(() => {
@@ -165,8 +173,28 @@ export default function HostView() {
 
   return (
     <div className="wrap host">
-      <div className="eyebrow">Concurso de belleza de Keynes · objetivo = ⅔ del promedio</div>
-      <h1>Panel del anfitrión</h1>
+      {projector && (
+        <Projector
+          hostData={hostData}
+          participantUrl={PARTICIPANT_URL}
+          nextRoundNum={nextRoundNum}
+          loading={loading}
+          onOpenRound={openRound}
+          onCloseRound={closeRound}
+          onExit={() => setProjector(false)}
+          showNash={showNash}
+          setShowNash={setShowNash}
+        />
+      )}
+      <div className="host-head">
+        <div>
+          <div className="eyebrow">Concurso de belleza de Keynes · objetivo = ⅔ del promedio</div>
+          <h1>Panel del anfitrión</h1>
+        </div>
+        <button className="btn btn-dark" onClick={() => setProjector(true)}>
+          Modo proyector
+        </button>
+      </div>
       {offline && <div className="error" style={{ marginBottom: 14 }}>Sin conexión con el servidor. Reintentando…</div>}
 
       {/* QR + participants card */}
