@@ -1,3 +1,7 @@
+// Número tal como lo escribió el participante (hasta 2 decimales, coma decimal)
+export const fmtNum = n =>
+  new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 }).format(n)
+
 export const fmt1 = n =>
   new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 }).format(n)
 
@@ -14,11 +18,15 @@ export function buildLeaderboard(results) {
   const tally = {}
   results.forEach(r => {
     const winners = winnersOf(r.guesses, r.target)
-    const winIds = new Set(winners.map(w => w.name))
+    // Identifica a cada persona por su id (pid), no por el nombre
+    const keyOf = g => g.pid ?? g.name
+    const winIds = new Set(winners.map(keyOf))
     r.guesses.forEach(g => {
-      if (!tally[g.name]) tally[g.name] = { name: g.name, wins: 0, diffs: [] }
-      tally[g.name].diffs.push(Math.abs(g.value - r.target))
-      if (winIds.has(g.name)) tally[g.name].wins++
+      const k = keyOf(g)
+      if (!tally[k]) tally[k] = { name: g.name, wins: 0, diffs: [] }
+      tally[k].name = g.name // nombre más reciente
+      tally[k].diffs.push(Math.abs(g.value - r.target))
+      if (winIds.has(k)) tally[k].wins++
     })
   })
   return Object.values(tally)

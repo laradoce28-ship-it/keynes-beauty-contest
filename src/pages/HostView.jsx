@@ -1,58 +1,88 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { supabase } from '../supabase'
-import { fmt1, winnersOf, buildLeaderboard, histogramSVG, trendSVG } from '../lib/gameCalc'
+import { rpc } from '../api'
+import { fmt1, fmtNum, winnersOf, buildLeaderboard, histogramSVG, trendSVG } from '../lib/gameCalc'
 
 const PARTICIPANT_URL = window.location.origin + '/'
 
 export default function HostView() {
   const [pinInput, setPinInput] = useState('')
-  const [pin, setPin] = useState(null)
+  // El PIN se recuerda en esta pestaña (sessionStorage) para sobrevivir a una recarga del proyector
+  const [pin, setPin] = useState(() => {
+    try { return sessionStorage.getItem('host_pin') } catch { return null }
+  })
   const [pinErr, setPinErr] = useState('')
   const [sessionId, setSessionId] = useState(null)
   const [hostData, setHostData] = useState(null)
   const [showNash, setShowNash] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [offline, setOffline] = useState(false)
   const pollRef = useRef(null)
 
-  // Fetch default session on mount
+  // Fetch default session on mount (reintenta si falla)
   useEffect(() => {
-    supabase.rpc('default_session').then(({ data }) => {
-      if (data) setSessionId(data)
-    })
+    let cancelled = false
+    let timer
+    const load = async () => {
+      const { data, error } = await rpc('default_session')
+      if (cancelled) return
+      if (error || !data) { setOffline(true); timer = setTimeout(load, 4000); return }
+      setOffline(false)
+      setSessionId(data)
+    }
+    load()
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [])
+
+  const forgetPin = useCallback(() => {
+    try { sessionStorage.removeItem('host_pin') } catch { /* sin almacenamiento */ }
+    setPin(null)
+    setHostData(null)
   }, [])
 
   const fetchHostState = useCallback(async (currentPin) => {
-    if (!sessionId || !currentPin) return null
-    const { data, error } = await supabase.rpc('host_state', {
+    if (!sessionId) return { message: 'Conectando con el servidor…' }
+    if (!currentPin) return null
+    const { data, error } = await rpc('host_state', {
       p_session: sessionId,
       p_pin: currentPin,
     })
-    if (error) return error
+    if (error) {
+      setOffline(error.status === 0 || error.status >= 500)
+      return error
+    }
+    setOffline(false)
     setHostData(data)
     return null
   }, [sessionId])
 
-  // Poll every 4s while a round is open
+  // Poll every 4s (siempre, para ver nuevos participantes)
   useEffect(() => {
     if (!pin || !sessionId) return
-    pollRef.current = setInterval(() => fetchHostState(pin), 4000)
+    const tick = async () => {
+      const err = await fetchHostState(pin)
+      if (err?.status === 401) forgetPin() // el PIN guardado ya no es válido
+    }
+    tick()
+    pollRef.current = setInterval(tick, 4000)
     return () => clearInterval(pollRef.current)
-  }, [pin, sessionId, fetchHostState])
+  }, [pin, sessionId, fetchHostState, forgetPin])
 
   async function handlePinSubmit() {
     setPinErr('')
-    if (!pinInput.trim()) { setPinErr('Escribe el PIN.'); return }
+    const value = pinInput.trim()
+    if (!value) { setPinErr('Escribe el PIN.'); return }
     setLoading(true)
-    const err = await fetchHostState(pinInput.trim())
+    const err = await fetchHostState(value)
     setLoading(false)
-    if (err) { setPinErr('PIN incorrecto o error de conexión.'); return }
-    setPin(pinInput.trim())
+    if (err) { setPinErr(err.status === 401 ? 'PIN incorrecto.' : err.message); return }
+    try { sessionStorage.setItem('host_pin', value) } catch { /* sin almacenamiento */ }
+    setPin(value)
   }
 
   async function openRound() {
     setLoading(true)
-    const { error } = await supabase.rpc('host_open_round', {
+    const { error } = await rpc('host_open_round', {
       p_session: sessionId,
       p_pin: pin,
     })
@@ -64,7 +94,7 @@ export default function HostView() {
   async function resetSession() {
     if (!window.confirm('¿Borrar todas las rondas y participantes? Esta acción no se puede deshacer.')) return
     setLoading(true)
-    const { error } = await supabase.rpc('host_reset_session', {
+    const { error } = await rpc('host_reset_session', {
       p_session: sessionId,
       p_pin: pin,
     })
@@ -79,7 +109,7 @@ export default function HostView() {
     const current = hostData?.current
     if (!current) return
     setLoading(true)
-    const { error } = await supabase.rpc('host_close_round', {
+    const { error } = await rpc('host_close_round', {
       p_round: current.id,
       p_pin: pin,
     })
@@ -126,8 +156,9 @@ export default function HostView() {
   const participantNames = hostData?.participant_names ?? []
   const isOpen = current?.status === 'open'
   const hasClosed = results.length > 0
-  const nextRoundNum = (current?.number ?? results.length) + (isOpen ? 1 : (current ? 0 : 0))
-  const currentRoundNum = current?.number ?? (results.length + 1)
+  // Ronda que se muestra (la última, abierta o cerrada) y la que se abrirá con el botón
+  const currentRoundNum = current?.number ?? 1
+  const nextRoundNum = (current?.number ?? 0) + 1
 
   // Dashboard data: use last closed round
   const lastClosed = results[results.length - 1] ?? null
@@ -136,6 +167,7 @@ export default function HostView() {
     <div className="wrap host">
       <div className="eyebrow">Concurso de belleza de Keynes · objetivo = ⅔ del promedio</div>
       <h1>Panel del anfitrión</h1>
+      {offline && <div className="error" style={{ marginBottom: 14 }}>Sin conexión con el servidor. Reintentando…</div>}
 
       {/* QR + participants card */}
       <div className="card" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'start' }}>
@@ -198,7 +230,7 @@ export default function HostView() {
         <div className="btn-row" style={{ marginTop: 20 }}>
           {!isOpen && (
             <button className="btn btn-primary" onClick={openRound} disabled={loading} style={{ fontSize: 17, padding: '16px 24px' }}>
-              {loading ? <><span className="spinner" />Abriendo…</> : `Abrir ronda ${currentRoundNum}`}
+              {loading ? <><span className="spinner" />Abriendo…</> : `Abrir ronda ${nextRoundNum}`}
             </button>
           )}
           {isOpen && (
@@ -210,7 +242,7 @@ export default function HostView() {
       </div>
 
       {/* Dashboard — only shown when there's at least one closed round */}
-      {hasClosed && lastClosed && <Dashboard results={results} lastClosed={lastClosed} showNash={showNash} setShowNash={setShowNash} onNextRound={openRound} loading={loading} isOpen={isOpen} />}
+      {hasClosed && lastClosed && <Dashboard results={results} lastClosed={lastClosed} showNash={showNash} setShowNash={setShowNash} onNextRound={openRound} nextRoundNum={nextRoundNum} loading={loading} isOpen={isOpen} />}
 
       {/* Reset */}
       <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--line)' }}>
@@ -228,10 +260,10 @@ export default function HostView() {
   )
 }
 
-function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, loading, isOpen }) {
+function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, nextRoundNum, loading, isOpen }) {
   const { average, target, guesses, number: roundNumber } = lastClosed
   const winners = winnersOf(guesses, target)
-  const winValues = [...new Set(winners.map(w => w.value))].sort((a, b) => a - b).join(' / ')
+  const winValues = [...new Set(winners.map(w => w.value))].sort((a, b) => a - b).map(fmtNum).join(' / ')
   const leaderboard = buildLeaderboard(results)
 
   const topGuesses = guesses
@@ -293,11 +325,11 @@ function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, lo
             <thead><tr><th>Nombre</th><th className="r">Nº</th><th className="r">Dif.</th></tr></thead>
             <tbody>
               {topGuesses.map((g, i) => {
-                const isWin = winners.some(w => w.name === g.name && w.value === g.value)
+                const isWin = winners.some(w => (w.pid ?? w.name) === (g.pid ?? g.name))
                 return (
                   <tr key={i} className={isWin ? 'win' : ''}>
                     <td>{g.name}</td>
-                    <td className="r val">{g.value}</td>
+                    <td className="r val">{fmtNum(g.value)}</td>
                     <td className="r dim">{fmt1(g.diff)}</td>
                   </tr>
                 )
@@ -367,7 +399,7 @@ function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, lo
       {!isOpen && (
         <div className="btn-row">
           <button className="btn btn-primary" onClick={onNextRound} disabled={loading}>
-            {loading ? <><span className="spinner" />Abriendo…</> : `Abrir ronda ${results.length + 1}`}
+            {loading ? <><span className="spinner" />Abriendo…</> : `Abrir ronda ${nextRoundNum}`}
           </button>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from '../supabase'
+import { rpc } from '../api'
 
 function getOrCreateToken() {
   let token = localStorage.getItem('device_token')
@@ -23,29 +23,47 @@ export default function ParticipantView() {
   const [regErr, setRegErr] = useState('')
   const [guessErr, setGuessErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const [offline, setOffline] = useState(false)
 
   const pollRef = useRef(null)
 
   // 1. Fetch default session on mount
+  // (reintenta cada 4 s si falla la conexión)
   useEffect(() => {
-    supabase.rpc('default_session').then(({ data, error }) => {
-      if (error || !data) return
+    let cancelled = false
+    let timer
+    const load = async () => {
+      const { data, error } = await rpc('default_session')
+      if (cancelled) return
+      if (error || !data) { setOffline(true); timer = setTimeout(load, 4000); return }
+      setOffline(false)
       setSessionId(data)
-    })
+    }
+    load()
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [])
 
   // 2. Poll participant_state every 4s once we have a session
   const poll = useCallback(async () => {
     if (!sessionId) return
-    const { data, error } = await supabase.rpc('participant_state', {
+    const { data, error } = await rpc('participant_state', {
       p_session: sessionId,
       p_token: token,
     })
-    if (error || !data) return
+    if (error || !data) { setOffline(true); return }
+    setOffline(false)
     setParticipant(data.participant)
     setRound(data.round)
     setSubmitted(data.submitted)
+    setMyValue(data.my_value ?? null)
   }, [sessionId, token])
+
+  // Al cambiar de ronda, limpia el número escrito en la ronda anterior
+  const roundId = round?.id
+  useEffect(() => {
+    setGuessInput('')
+    setGuessErr('')
+  }, [roundId])
 
   useEffect(() => {
     if (!sessionId) return
@@ -59,7 +77,7 @@ export default function ParticipantView() {
     const name = nameInput.trim()
     if (!name) { setRegErr('Escribe tu nombre.'); return }
     setLoading(true)
-    const { data, error } = await supabase.rpc('register_participant', {
+    const { error } = await rpc('register_participant', {
       p_session: sessionId,
       p_name: name,
       p_token: token,
@@ -76,7 +94,7 @@ export default function ParticipantView() {
     const v = parseFloat(raw)
     if (isNaN(v) || v < 0 || v > 100) { setGuessErr('Debe estar entre 0 y 100.'); return }
     setLoading(true)
-    const { error } = await supabase.rpc('submit_guess', {
+    const { error } = await rpc('submit_guess', {
       p_session: sessionId,
       p_token: token,
       p_value: v,
@@ -92,6 +110,7 @@ export default function ParticipantView() {
       <div className="wrap part">
         <div className="eyebrow">Concurso de belleza de Keynes</div>
         <h1>Cargando…</h1>
+        {offline && <p className="note">Sin conexión con el servidor. Reintentando…</p>}
       </div>
     )
   }
@@ -111,6 +130,10 @@ export default function ParticipantView() {
         Escribe un número del 0 al 100 (puedes usar decimales) que crees que será{' '}
         <strong>dos tercios del promedio</strong> de todo el grupo. Gana quien más se acerque.
       </p>
+
+      {offline && (
+        <div className="error" style={{ marginBottom: 14 }}>Conexión inestable. Reintentando…</div>
+      )}
 
       {screen === 'register' && (
         <div className="card">
@@ -187,7 +210,7 @@ export default function ParticipantView() {
         <div className="card">
           <span className="pill open"><span className="dot" />Enviado</span>
           <div style={{ margin: '16px 0', fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 40 }}>
-            {myValue ?? '—'}
+            {myValue == null ? '—' : String(myValue).replace('.', ',')}
           </div>
           <p style={{ color: 'var(--muted)', fontSize: 14 }}>
             Tu número quedó registrado y fijo. Espera a que el anfitrión cierre la ronda. No verás el resultado desde aquí.
