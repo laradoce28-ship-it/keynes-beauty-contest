@@ -93,7 +93,7 @@ export default function Projector({
   return (
     <div className="proj" role="dialog" aria-label="Modo proyector">
       <div className="proj-top">
-        <span className="eyebrow" style={{ margin: 0 }}>Concurso de belleza de Keynes</span>
+        <span className="eyebrow" style={{ margin: 0 }}>Concurso de Keynes</span>
         <span className="proj-rule">objetivo = ⅔ del promedio</span>
       </div>
 
@@ -169,6 +169,13 @@ function Collect({ current, total, url, nextRoundNum }) {
   )
 }
 
+// Con muchos empatados, columnas y tamaño de letra según la cantidad, para que quepan siempre
+function winnerGrid(n) {
+  if (n <= 4) return undefined
+  const cols = n <= 9 ? 3 : n <= 16 ? 4 : 5
+  return { '--cols': cols, '--rows': Math.ceil(n / cols) }
+}
+
 function Reveal({ round, step }) {
   const { average, target, guesses, number } = round
   const winners = winnersOf(guesses, target)
@@ -213,8 +220,8 @@ function Reveal({ round, step }) {
 
       {step === 5 && (
         <div className="proj-winner rise">
-          <div className="crown">{winners.length > 1 ? `Empate entre ${winners.length}` : 'Gana'}</div>
-          <div className={`names ${winners.length <= 2 ? 'few' : winners.length <= 4 ? 'some' : 'many'}`}>
+          <div className="crown">{winners.length === 1 ? 'Gana' : winners.length === guesses.length ? `Empate entre todos (${winners.length})` : `Empate entre ${winners.length} de ${guesses.length}`}</div>
+          <div className={`names ${winners.length <= 2 ? 'few' : winners.length <= 4 ? 'some' : 'many'}`} style={winnerGrid(winners.length)}>
             {winners.map(w => (
               <div key={w.pid ?? w.name} className="name">{w.name}</div>
             ))}

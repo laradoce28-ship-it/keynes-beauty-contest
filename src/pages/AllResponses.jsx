@@ -50,9 +50,10 @@ export default function AllResponses({ round, variant = 'panel' }) {
     })
 
   const isProj = variant === 'proj'
-  const cols = isProj && rows.length > 14 ? 2 : 1
+  // En el proyector: 1, 2 o 3 columnas según cuántos haya; la letra se ajusta a las filas (ver .proj-list)
+  const cols = !isProj ? 1 : rows.length <= 14 ? 1 : rows.length <= 40 ? 2 : 3
   const perCol = Math.ceil(rows.length / cols)
-  const head = <div className="ar-colhead ar-cols" aria-hidden="true"><span>#</span><span>Nombre</span><span /><span>{isProj ? 'Predicción' : 'Pred.'}</span><span>{isProj ? 'Distancia' : 'Dif.'}</span>{!isProj && <span />}</div>
+  const head = <div className="ar-colhead ar-cols" aria-hidden="true"><span>#</span><span>Nombre</span><span className="ar-scale">Escala 0–100</span><span>{isProj ? 'Predicción' : 'Pred.'}</span><span>{isProj ? 'Distancia' : 'Dif.'}</span>{!isProj && <span />}</div>
 
   const list = (
     <>
@@ -87,7 +88,7 @@ export default function AllResponses({ round, variant = 'panel' }) {
 
   if (isProj) {
     return (
-      <div className="proj-list rise">
+      <div className="proj-list rise" style={{ '--rows': perCol }}>
         <div className="proj-list-title"><span>Todas las predicciones</span><span>objetivo <b>{fmt1(round.target)}</b></span></div>
         {list}
       </div>

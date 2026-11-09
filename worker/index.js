@@ -1,6 +1,6 @@
 import { validateFullName } from '../src/lib/nameRules.js'
 
-// API del Concurso de belleza de Keynes sobre Cloudflare Workers + D1.
+// API del Concurso de Keynes sobre Cloudflare Workers + D1.
 // Reemplaza las funciones RPC de Supabase: el frontend llama POST /api/<función>
 // con los mismos parámetros (p_session, p_token, …) y nunca toca la base directamente.
 

@@ -58,6 +58,9 @@ export default function DemoView() {
     if (kind === 'empty') { /* sala vacía */ }
     if (kind === 'arriving') demoAddStudents(12)
     if (['r1open', 'r1closed', 'final', 'tie', 'jokers'].includes(kind)) demoAddStudents(28)
+    if (kind === 'full' || kind === 'massTie') demoAddStudents(99)
+    if (kind === 'full') { await demoOpen(); demoVote(99); await demoClose() }
+    if (kind === 'massTie') { await demoOpen(); demoVoteValues([...Array(33).fill(0), 1, 2]); await demoClose() }
     if (kind === 'r1open') { await demoOpen(); demoVote(17) }
     if (kind === 'r1closed') { await demoOpen(); demoVote(28); await demoClose() }
     if (kind === 'final') { for (let i = 0; i < 3; i++) { await demoOpen(); demoVote(28); await demoClose() } }
@@ -100,6 +103,8 @@ export default function DemoView() {
           <button onClick={() => scenario('final')}>Final de 3 rondas</button>
           <button onClick={() => scenario('tie')}>Empate múltiple</button>
           <button onClick={() => scenario('jokers')}>Con bromistas</button>
+          <button onClick={() => scenario('full')}>Curso de 35</button>
+          <button onClick={() => scenario('massTie')}>Empate masivo</button>
         </div>
         <div className="demo-group">
           <span className="demo-k">Paso a paso</span>

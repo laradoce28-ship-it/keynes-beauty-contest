@@ -1,4 +1,4 @@
--- Esquema inicial del Concurso de belleza de Keynes (Cloudflare D1 / SQLite)
+-- Esquema inicial del Concurso de Keynes (Cloudflare D1 / SQLite)
 
 CREATE TABLE sessions (
   id         TEXT PRIMARY KEY,

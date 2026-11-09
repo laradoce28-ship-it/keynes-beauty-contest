@@ -132,7 +132,7 @@ export default function HostView() {
   if (!pin) {
     return (
       <div className="wrap part">
-        <div className="eyebrow">Concurso de belleza de Keynes · docente</div>
+        <div className="eyebrow">Concurso de Keynes · docente</div>
         <h1>Panel docente</h1>
         <p className="lede">Introduce el PIN docente para acceder al panel y controlar las rondas.</p>
         <div className="card">
@@ -182,7 +182,7 @@ export default function HostView() {
       )}
       <div className="host-head">
         <div>
-          <div className="eyebrow">Concurso de belleza de Keynes · objetivo = <span style={{ fontFamily: 'var(--font-body)' }}>⅔</span> del promedio</div>
+          <div className="eyebrow">Concurso de Keynes · objetivo = <span style={{ fontFamily: 'var(--font-body)' }}>⅔</span> del promedio</div>
           <h1>Panel docente</h1>
         </div>
         <button className="btn btn-dark" onClick={() => setProjector(true)}>
