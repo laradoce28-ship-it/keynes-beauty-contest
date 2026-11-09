@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { rpc } from '../api'
 import Projector from './Projector'
+import AllResponses from './AllResponses'
 import { fmt1, fmtNum, winnersOf, buildLeaderboard, histogramSVG, trendSVG } from '../lib/gameCalc'
 
 const PARTICIPANT_URL = window.location.origin + '/'
@@ -15,10 +16,12 @@ export default function HostView() {
   const [pinErr, setPinErr] = useState('')
   const [sessionId, setSessionId] = useState(null)
   const [hostData, setHostData] = useState(null)
-  const [showNash, setShowNash] = useState(false)
   const [loading, setLoading] = useState(false)
   const [offline, setOffline] = useState(false)
   const [projector, setProjector] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const toastTimer = useRef(null)
   const pollRef = useRef(null)
 
   // Bloquea el scroll de la página mientras el modo proyector está abierto
@@ -88,28 +91,29 @@ export default function HostView() {
     setPin(value)
   }
 
+  // Aviso dentro de la página (reemplaza alert, que bloquea el proyector)
+  const showToast = useCallback(msg => {
+    setToast(msg)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 6000)
+  }, [])
+
   async function openRound() {
     setLoading(true)
-    const { error } = await rpc('host_open_round', {
-      p_session: sessionId,
-      p_pin: pin,
-    })
+    const { error } = await rpc('host_open_round', { p_session: sessionId, p_pin: pin })
     setLoading(false)
-    if (error) { alert(error.message); return }
+    if (error) { showToast(error.message); return }
     await fetchHostState(pin)
   }
 
   async function resetSession() {
-    if (!window.confirm('¿Borrar todas las rondas y participantes? Esta acción no se puede deshacer.')) return
+    setConfirmReset(false)
     setLoading(true)
-    const { error } = await rpc('host_reset_session', {
-      p_session: sessionId,
-      p_pin: pin,
-    })
+    const { error } = await rpc('host_reset_session', { p_session: sessionId, p_pin: pin })
     setLoading(false)
-    if (error) { alert(error.message); return }
+    if (error) { showToast(error.message); return }
     setHostData(null)
-    setShowNash(false)
+    showToast('Sesión reiniciada: se borraron rondas y participantes.')
     await fetchHostState(pin)
   }
 
@@ -117,12 +121,9 @@ export default function HostView() {
     const current = hostData?.current
     if (!current) return
     setLoading(true)
-    const { error } = await rpc('host_close_round', {
-      p_round: current.id,
-      p_pin: pin,
-    })
+    const { error } = await rpc('host_close_round', { p_round: current.id, p_pin: pin })
     setLoading(false)
-    if (error) { alert(error.message); return }
+    if (error) { showToast(error.message); return }
     await fetchHostState(pin)
   }
 
@@ -130,26 +131,22 @@ export default function HostView() {
   if (!pin) {
     return (
       <div className="wrap part">
-        <div className="eyebrow">Concurso de belleza de Keynes · anfitrión</div>
-        <h1>Panel del anfitrión</h1>
-        <p className="lede">Introduce el PIN de anfitrión para acceder al panel y controlar las rondas.</p>
+        <div className="eyebrow">Concurso de belleza de Keynes · docente</div>
+        <h1>Panel docente</h1>
+        <p className="lede">Introduce el PIN docente para acceder al panel y controlar las rondas.</p>
         <div className="card">
-          <label className="field-label" htmlFor="pin">PIN de anfitrión</label>
+          <label className="field-label" htmlFor="pin">PIN docente</label>
           <input
             type="text"
             id="pin"
             placeholder="Tu PIN"
             autoComplete="off"
+            inputMode="numeric"
             value={pinInput}
             onChange={e => setPinInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}
           />
-          <button
-            className="btn btn-primary"
-            style={{ marginTop: 16 }}
-            onClick={handlePinSubmit}
-            disabled={loading}
-          >
+          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handlePinSubmit} disabled={loading}>
             {loading ? <><span className="spinner" />Verificando…</> : 'Acceder'}
           </button>
           {pinErr && <div className="error">{pinErr}</div>}
@@ -163,13 +160,11 @@ export default function HostView() {
   const totalParticipants = hostData?.participants ?? 0
   const participantNames = hostData?.participant_names ?? []
   const isOpen = current?.status === 'open'
-  const hasClosed = results.length > 0
+  const submittedSet = new Set(isOpen ? current?.submitted_names ?? [] : [])
+  const pendingCount = isOpen ? participantNames.filter(n => !submittedSet.has(n)).length : 0
   // Ronda que se muestra (la última, abierta o cerrada) y la que se abrirá con el botón
   const currentRoundNum = current?.number ?? 1
   const nextRoundNum = (current?.number ?? 0) + 1
-
-  // Dashboard data: use last closed round
-  const lastClosed = results[results.length - 1] ?? null
 
   return (
     <div className="wrap host">
@@ -182,14 +177,12 @@ export default function HostView() {
           onOpenRound={openRound}
           onCloseRound={closeRound}
           onExit={() => setProjector(false)}
-          showNash={showNash}
-          setShowNash={setShowNash}
         />
       )}
       <div className="host-head">
         <div>
-          <div className="eyebrow">Concurso de belleza de Keynes · objetivo = ⅔ del promedio</div>
-          <h1>Panel del anfitrión</h1>
+          <div className="eyebrow">Concurso de belleza de Keynes · objetivo = <span style={{ fontFamily: 'var(--font-body)' }}>⅔</span> del promedio</div>
+          <h1>Panel docente</h1>
         </div>
         <button className="btn btn-dark" onClick={() => setProjector(true)}>
           Modo proyector
@@ -197,33 +190,36 @@ export default function HostView() {
       </div>
       {offline && <div className="error" style={{ marginBottom: 14 }}>Sin conexión con el servidor. Reintentando…</div>}
 
-      {/* QR + participants card */}
-      <div className="card" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'start' }}>
-        {/* QR */}
+      {/* QR + participantes */}
+      <div className="card" style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 28, alignItems: 'start' }}>
         <div style={{ flexShrink: 0, background: '#fff', padding: 12, border: '1px solid var(--line)', borderRadius: 14 }}>
           <QRCodeSVG value={PARTICIPANT_URL} size={150} />
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'var(--muted)', textAlign: 'center', marginTop: 8, letterSpacing: '.04em' }}>
+          <div style={{ fontFamily: 'var(--font-label)', fontSize: 10, color: 'var(--muted)', textAlign: 'center', marginTop: 8, letterSpacing: '.04em' }}>
             Escanea para entrar
           </div>
         </div>
-        {/* Info */}
-        <div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--font-label)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
             Enlace para participantes
           </div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, wordBreak: 'break-all', marginBottom: 16 }}>
+          <div style={{ fontFamily: 'var(--font-label)', fontSize: 15, fontWeight: 700, wordBreak: 'break-all', marginBottom: 16 }}>
             {PARTICIPANT_URL}
           </div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 13, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+          <div style={{ fontFamily: 'var(--font-label)', fontSize: 13, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
             {participantNames.length} participante{participantNames.length !== 1 ? 's' : ''} registrado{participantNames.length !== 1 ? 's' : ''}
+            {isOpen && participantNames.length > 0 && (
+              <span style={{ color: pendingCount ? 'var(--accent)' : 'var(--green)', marginLeft: 10 }}>
+                · {pendingCount ? `faltan ${pendingCount}` : 'respondieron todos'}
+              </span>
+            )}
           </div>
           {participantNames.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, maxHeight: 120, overflowY: 'auto' }}>
-              {participantNames.map((name, i) => (
-                <span key={i} style={{ fontSize: 13, fontWeight: 500, padding: '5px 12px', borderRadius: 999, background: '#F1EDE6', border: '1px solid var(--line)' }}>
-                  {name}
-                </span>
-              ))}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, maxHeight: 150, overflowY: 'auto' }}>
+              {[...participantNames]
+                .sort((a, b) => (isOpen ? Number(submittedSet.has(a)) - Number(submittedSet.has(b)) : 0))
+                .map(name => (
+                  <span key={name} className={`chip${isOpen ? (submittedSet.has(name) ? ' done' : ' pending') : ''}`}>{name}</span>
+                ))}
             </div>
           ) : (
             <div style={{ color: 'var(--muted)', fontSize: 14 }}>Aún no hay participantes. Comparte el QR.</div>
@@ -231,11 +227,11 @@ export default function HostView() {
         </div>
       </div>
 
-      {/* Round control card */}
+      {/* Control de ronda */}
       <div className="card">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 24 }}>
           <div>
-            <div style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 800, fontSize: 'clamp(22px, 3vw, 32px)', lineHeight: 1.1, marginBottom: 12 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'clamp(22px, 3vw, 32px)', lineHeight: 1.1, marginBottom: 12 }}>
               Ronda {currentRoundNum}
               <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
                 {isOpen ? ' · abierta' : current ? ' · cerrada' : ' · sin abrir'}
@@ -246,11 +242,11 @@ export default function HostView() {
             </span>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 'clamp(42px, 6vw, 64px)', lineHeight: 1, color: isOpen ? 'var(--green)' : 'var(--ink)' }}>
+            <div style={{ fontFamily: 'var(--font-num)', fontVariantNumeric: 'tabular-nums', fontWeight: 800, fontSize: 'clamp(42px, 6vw, 64px)', lineHeight: 1, color: isOpen ? 'var(--green)' : 'var(--ink)' }}>
               {current?.count ?? 0}<span style={{ color: 'var(--line)' }}> /</span> {totalParticipants}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 6 }}>
-              respuestas recibidas
+              predicciones recibidas
             </div>
           </div>
         </div>
@@ -262,46 +258,67 @@ export default function HostView() {
             </button>
           )}
           {isOpen && (
-            <button className="btn btn-dark" onClick={closeRound} disabled={loading} style={{ fontSize: 17, padding: '16px 24px' }}>
-              {loading ? <><span className="spinner" />Cerrando…</> : 'Cerrar ronda y revelar'}
+            <button className="btn btn-dark" onClick={closeRound} disabled={loading || !current?.count} style={{ fontSize: 17, padding: '16px 24px' }}>
+              {loading ? <><span className="spinner" />Cerrando…</> : current?.count ? 'Cerrar ronda y revelar' : 'Esperando la primera predicción…'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Dashboard — only shown when there's at least one closed round */}
-      {hasClosed && lastClosed && <Dashboard results={results} lastClosed={lastClosed} showNash={showNash} setShowNash={setShowNash} onNextRound={openRound} nextRoundNum={nextRoundNum} loading={loading} isOpen={isOpen} />}
+      {results.length > 0 && <Dashboard results={results} onNextRound={openRound} nextRoundNum={nextRoundNum} loading={loading} isOpen={isOpen} />}
 
-      {/* Reset */}
+      {/* Reiniciar */}
       <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--line)' }}>
-        <button
-          className="btn btn-ghost"
-          style={{ color: 'var(--accent)', borderColor: 'var(--accent)', width: 'auto' }}
-          onClick={resetSession}
-          disabled={loading}
-        >
-          Reiniciar sesión desde cero
-        </button>
-        <p className="note" style={{ marginTop: 8 }}>Borra todas las rondas y participantes. Útil para pruebas.</p>
+        {!confirmReset ? (
+          <button
+            className="btn btn-ghost"
+            style={{ color: 'var(--accent)', borderColor: 'var(--accent)', width: 'auto' }}
+            onClick={() => setConfirmReset(true)}
+            disabled={loading}
+          >
+            Reiniciar sesión desde cero
+          </button>
+        ) : (
+          <div className="confirm-box" role="alertdialog" aria-label="Confirmar reinicio">
+            <b>¿Borrar todas las rondas y participantes?</b>
+            <span style={{ fontSize: 14, color: 'var(--muted)' }}>No se puede deshacer. Los estudiantes tendrán que registrarse de nuevo.</span>
+            <div className="btn-row">
+              <button className="btn btn-primary" onClick={resetSession} disabled={loading}>Sí, borrar todo</button>
+              <button className="btn btn-ghost" onClick={() => setConfirmReset(false)}>Cancelar</button>
+            </div>
+          </div>
+        )}
+        <p className="note" style={{ marginTop: 8, textAlign: 'left' }}>Borra todas las rondas y participantes. Útil para pruebas.</p>
       </div>
+
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast}</span>
+          <button type="button" onClick={() => setToast(null)} aria-label="Cerrar aviso">×</button>
+        </div>
+      )}
     </div>
   )
 }
 
-function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, nextRoundNum, loading, isOpen }) {
+function Dashboard({ results, onNextRound, nextRoundNum, loading, isOpen }) {
+  const lastClosed = results[results.length - 1]
+  const [listRound, setListRound] = useState(lastClosed.number)
+  // Al cerrarse una ronda nueva, la lista salta a esa ronda
+  useEffect(() => { setListRound(lastClosed.number) }, [lastClosed.number])
+  const listData = results.find(r => r.number === listRound) ?? lastClosed
+
   const { average, target, guesses, number: roundNumber } = lastClosed
   const winners = winnersOf(guesses, target)
   const winValues = [...new Set(winners.map(w => w.value))].sort((a, b) => a - b).map(fmtNum).join(' / ')
   const leaderboard = buildLeaderboard(results)
 
-  const topGuesses = guesses
-    .map(g => ({ ...g, diff: Math.abs(g.value - target) }))
-    .sort((a, b) => a.diff - b.diff)
-    .slice(0, 12)
-
   return (
     <>
-      {/* KPIs */}
+      <div className="section-title" style={{ margin: '28px 0 12px' }}>
+        Resultados · ronda {roundNumber}
+        {isOpen && <span style={{ color: 'var(--muted)', fontWeight: 600 }}> (ronda anterior)</span>}
+      </div>
       <div className="kpis">
         <div className="kpi">
           <div className="k-val">{guesses.length}</div>
@@ -317,67 +334,62 @@ function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, ne
         </div>
         <div className="kpi gold">
           <div className="k-val">{winValues || '—'}</div>
-          <div className="k-cap">número ganador</div>
+          <div className="k-cap">predicción ganadora</div>
         </div>
       </div>
 
-      {/* Histogram */}
       <div className="card">
-        <div className="dash-head">
-          <div className="section-title" style={{ marginBottom: 0 }}>
-            Distribución de la ronda <span>· ronda {roundNumber}</span>
-          </div>
-          <button
-            className={`btn-sm ${showNash ? 'on' : ''}`}
-            onClick={() => setShowNash(s => !s)}
-          >
-            {showNash ? 'Ocultar equilibrio de Nash' : 'Mostrar equilibrio de Nash'}
-          </button>
+        <div className="section-title">
+          Distribución de predicciones <span style={{ color: 'var(--muted)', fontWeight: 600 }}>· ronda {roundNumber}</span>
         </div>
-        <div
-          style={{ marginTop: 16 }}
-          dangerouslySetInnerHTML={{ __html: histogramSVG(guesses, average, target, showNash) }}
-        />
+        <div dangerouslySetInnerHTML={{ __html: histogramSVG(guesses, average, target) }} />
         <div className="legend">
           <span><i style={{ background: 'var(--muted)' }} />Promedio</span>
           <span><i style={{ background: 'var(--accent)' }} />Objetivo (⅔ del promedio)</span>
-          {showNash && <span><i style={{ background: 'var(--green)' }} />Equilibrio de Nash (0)</span>}
+          <span><i style={{ background: 'var(--gold)' }} />Grupo del ganador</span>
         </div>
       </div>
 
-      {/* Top closest + Trend */}
+      {results.length > 1 && (
+        <div className="ar-tools" style={{ marginBottom: 8 }}>
+          <label htmlFor="ar-round" style={{ fontSize: 13, color: 'var(--muted)' }}>Ver predicciones de la</label>
+          <select id="ar-round" value={listRound} onChange={e => setListRound(Number(e.target.value))}>
+            {results.map(r => <option key={r.number} value={r.number}>ronda {r.number}</option>)}
+          </select>
+        </div>
+      )}
+      <AllResponses round={listData} />
+
       <div className="grid2">
         <div className="card">
-          <div className="section-title">Más cerca del objetivo</div>
-          <table className="grid">
-            <thead><tr><th>Nombre</th><th className="r">Nº</th><th className="r">Dif.</th></tr></thead>
-            <tbody>
-              {topGuesses.map((g, i) => {
-                const isWin = winners.some(w => (w.pid ?? w.name) === (g.pid ?? g.name))
-                return (
-                  <tr key={i} className={isWin ? 'win' : ''}>
-                    <td>{g.name}</td>
-                    <td className="r val">{fmtNum(g.value)}</td>
-                    <td className="r dim">{fmt1(g.diff)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="card">
           <div className="section-title">Tendencia entre rondas</div>
-          <div dangerouslySetInnerHTML={{ __html: trendSVG(results, showNash) }} />
+          <div dangerouslySetInnerHTML={{ __html: trendSVG(results) }} />
           <div className="legend">
             <span><i style={{ background: 'var(--muted)' }} />Promedio</span>
             <span><i style={{ background: 'var(--accent)' }} />Objetivo</span>
-            {showNash && <span><i style={{ background: 'var(--green)' }} />Nash (0)</span>}
+            <span><i style={{ background: 'var(--line)', height: 8, width: 8, borderRadius: 4 }} />Cada predicción</span>
           </div>
+        </div>
+
+        <div className="card">
+          <div className="section-title">Tabla acumulada</div>
+          <table className="grid">
+            <thead>
+              <tr><th>Nombre</th><th className="r">Victorias</th><th className="r">Dif. media</th></tr>
+            </thead>
+            <tbody>
+              {leaderboard.slice(0, 12).map(t => (
+                <tr key={t.name}>
+                  <td>{t.name}</td>
+                  <td className="r val">{t.wins}</td>
+                  <td className="r dim">{fmt1(t.mean)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Rounds summary */}
       <div className="card">
         <div className="section-title">Resumen de rondas</div>
         <table className="grid">
@@ -389,35 +401,13 @@ function Dashboard({ results, lastClosed, showNash, setShowNash, onNextRound, ne
             </tr>
           </thead>
           <tbody>
-            {results.map(r => {
-              const ws = winnersOf(r.guesses, r.target).map(w => w.name).join(', ')
-              return (
-                <tr key={r.number}>
-                  <td>{r.number}</td>
-                  <td className="r val">{r.n}</td>
-                  <td className="r val">{fmt1(r.average)}</td>
-                  <td className="r target">{fmt1(r.target)}</td>
-                  <td>{ws}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Leaderboard */}
-      <div className="card">
-        <div className="section-title">Tabla acumulada (quién gana más rondas)</div>
-        <table className="grid">
-          <thead>
-            <tr><th>Nombre</th><th className="r">Victorias</th><th className="r">Dif. media</th></tr>
-          </thead>
-          <tbody>
-            {leaderboard.slice(0, 12).map((t, i) => (
-              <tr key={i}>
-                <td>{t.name}</td>
-                <td className="r val">{t.wins}</td>
-                <td className="r dim">{fmt1(t.mean)}</td>
+            {results.map(r => (
+              <tr key={r.number}>
+                <td>{r.number}</td>
+                <td className="r val">{r.n}</td>
+                <td className="r val">{fmt1(r.average)}</td>
+                <td className="r target">{fmt1(r.target)}</td>
+                <td>{winnersOf(r.guesses, r.target).map(w => w.name).join(', ')}</td>
               </tr>
             ))}
           </tbody>

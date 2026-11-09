@@ -1,0 +1,62 @@
+/* Opciones de paleta y tipografía para comparar (temporal).
+   Se activan con ?tema=1..4 y ?fuente=1..3 en la URL; ver src/lib/preview.js.
+   Cuando se elija la definitiva, se fija en :root y este archivo se elimina. */
+
+/* ── Paletas ─────────────────────────────────────────────────────────────── */
+/* 1 · Papel (actual): valores por defecto de :root en index.css */
+
+/* 2 · Aula de alto contraste */
+:root[data-tema="2"] {
+  --bg: #F2F4F7; --surface: #FFFFFF; --ink: #111418; --muted: #4A5260; --line: #D3D9E1;
+  --accent: #2453D6; --green: #1E8E5A; --gold: #E8590C;
+  --surface-2: #F8F9FB; --surface-3: #EEF1F5; --chip: #EEF1F5; --track: #E4E8EE;
+  --line-soft: #E4E8EE; --placeholder: #A9B1BD; --bar: #9DB0D6;
+  --accent-soft: #E8EEFC; --accent-line: #C3D1F5; --accent-hover: #1C44B5; --accent-ring: rgba(36,83,214,.16);
+  --green-soft: #E5F4EC; --green-line: #BEE3CF; --gold-soft: #FDEBDF; --ink-hover: #2A2F36; --on-accent: #fff;
+}
+
+/* 3 · Pizarra */
+:root[data-tema="3"] {
+  --bg: #1F3A33; --surface: #274840; --ink: #F4F1E8; --muted: #B7C5BD; --line: #3E6157;
+  --accent: #F2836B; --green: #8FD3B0; --gold: #F2C94C;
+  --surface-2: #2A4C43; --surface-3: #2F5248; --chip: #2F5248; --track: #36594F;
+  --line-soft: #36594F; --placeholder: #7E968C; --bar: #7FA697;
+  --accent-soft: #4A3A33; --accent-line: #7A4D41; --accent-hover: #F59A86; --accent-ring: rgba(242,131,107,.25);
+  --green-soft: #2E5A4C; --green-line: #4F8572; --gold-soft: #4B4A2E; --ink-hover: #FFFFFF; --on-accent: #1E2A26;
+  color-scheme: dark;
+}
+:root[data-tema="3"] .btn-dark, :root[data-tema="3"] .proj-btn.dark { background: var(--ink); color: var(--bg); }
+:root[data-tema="3"] .toast { background: var(--ink); color: var(--bg); }
+
+/* 4 · Bolsa de 1936 */
+:root[data-tema="4"] {
+  --bg: #F6E7DA; --surface: #FFF8F1; --ink: #1E2A3A; --muted: #5E6673; --line: #E2CDBC;
+  --accent: #A33A4A; --green: #1F6F8B; --gold: #B07D2B;
+  --surface-2: #FCF2E8; --surface-3: #F4E4D6; --chip: #F4E4D6; --track: #EED9C8;
+  --line-soft: #EED9C8; --placeholder: #C2AE9D; --bar: #9FB9C4;
+  --accent-soft: #F5E0DF; --accent-line: #E3BCBF; --accent-hover: #8A2F3D; --accent-ring: rgba(163,58,74,.16);
+  --green-soft: #E1EEF2; --green-line: #B8D4DE; --gold-soft: #F6E8CF; --ink-hover: #2C3A4D; --on-accent: #fff;
+}
+
+/* ── Tipografías ─────────────────────────────────────────────────────────── */
+/* 1 · Legible: Archivo Black + Atkinson Hyperlegible + cifras en Archivo */
+:root[data-fuente="1"] {
+  --font-display: 'Archivo Black', 'Arial Black', system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  --font-num: 'Archivo', system-ui, sans-serif;
+  --font-label: 'Archivo', system-ui, sans-serif;
+}
+:root[data-fuente="1"] h1, :root[data-fuente="1"] .pv-title, :root[data-fuente="1"] .proj-round,
+:root[data-fuente="1"] .proj-big-q, :root[data-fuente="1"] .proj-winner .name { font-weight: 400; letter-spacing: -.01em; }
+
+/* 2 · Editorial 1936: Fraunces + Source Sans 3 + IBM Plex Mono para rótulos */
+:root[data-fuente="2"] {
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Source Sans 3', system-ui, sans-serif;
+  --font-num: 'Source Sans 3', system-ui, sans-serif;
+  --font-label: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+:root[data-fuente="2"] h1, :root[data-fuente="2"] .pv-title, :root[data-fuente="2"] .proj-round,
+:root[data-fuente="2"] .proj-big-q, :root[data-fuente="2"] .proj-winner .name { font-weight: 700; letter-spacing: -.015em; }
+
+/* 3 · Actual corregida: valores por defecto de :root (Bricolage + Inter, cifras en Inter) */

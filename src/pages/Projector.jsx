@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { fmt1, fmtNum, winnersOf, histogramSVG } from '../lib/gameCalc'
+import AllResponses from './AllResponses'
 
 // Modo proyector: pantalla completa pensada para la sala.
 // - Ronda abierta (o sin rondas): QR grande + contador de respuestas.
 // - Ronda cerrada: revelación por pasos que controla el anfitrión
-//   (→ / Espacio avanza, ← retrocede, N muestra Nash, F pantalla completa, Esc sale).
+//   (→ / Espacio avanza, ← retrocede, F pantalla completa, Esc sale).
 
-const STEPS = ['intro', 'average', 'target', 'histogram', 'winner']
+const STEPS = ['intro', 'average', 'target', 'histogram', 'list', 'winner']
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -36,7 +37,7 @@ function useCountUp(value, active, duration = 1400) {
 
 export default function Projector({
   hostData, participantUrl, nextRoundNum, loading,
-  onOpenRound, onCloseRound, onExit, showNash, setShowNash,
+  onOpenRound, onCloseRound, onExit,
 }) {
   const current = hostData?.current ?? null
   const results = hostData?.results ?? []
@@ -69,12 +70,11 @@ export default function Projector({
       if (revealing && (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown')) { e.preventDefault(); next() }
       else if (revealing && (e.key === 'ArrowLeft' || e.key === 'PageUp')) { e.preventDefault(); prev() }
       else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
-      else if (e.key === 'n' || e.key === 'N') setShowNash(v => !v)
       else if (e.key === 'Escape' && !document.fullscreenElement) exit()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [revealing, next, prev, toggleFullscreen, setShowNash, exit])
+  }, [revealing, next, prev, toggleFullscreen, exit])
 
   return (
     <div className="proj" role="dialog" aria-label="Modo proyector">
@@ -85,7 +85,7 @@ export default function Projector({
 
       <div className="proj-stage">
         {revealing
-          ? <Reveal round={lastClosed} step={step} showNash={showNash} />
+          ? <Reveal round={lastClosed} step={step} />
           : <Collect current={current} total={total} url={participantUrl} nextRoundNum={nextRoundNum} />}
       </div>
 
@@ -116,7 +116,6 @@ export default function Projector({
               {loading ? 'Cerrando…' : 'Cerrar ronda y revelar'}
             </button>
           )}
-          <button className="proj-btn" onClick={() => setShowNash(v => !v)}>{showNash ? 'Ocultar Nash' : 'Nash'}</button>
           <button className="proj-btn" onClick={toggleFullscreen}>Pantalla completa</button>
           <button className="proj-btn" onClick={exit}>Salir</button>
         </div>
@@ -142,7 +141,7 @@ function Collect({ current, total, url, nextRoundNum }) {
           </span>
         </div>
         <p className="proj-instr">
-          Escanea el código y escribe un número del <b>0 al 100</b>.
+          Escanea el código y escribe tu predicción: un número entero del <b>0 al 100</b>.
           Gana quien más se acerque a <b className="hl">⅔ del promedio</b> del grupo.
         </p>
         <div className="proj-counter" aria-live="polite">
@@ -150,13 +149,13 @@ function Collect({ current, total, url, nextRoundNum }) {
           <span className="sep">/</span>
           <span>{total}</span>
         </div>
-        <div className="proj-cap">{isOpen ? 'respuestas recibidas' : `participante${total !== 1 ? 's' : ''} conectado${total !== 1 ? 's' : ''}`}</div>
+        <div className="proj-cap">{isOpen ? 'predicciones recibidas' : `participante${total !== 1 ? 's' : ''} conectado${total !== 1 ? 's' : ''}`}</div>
       </div>
     </div>
   )
 }
 
-function Reveal({ round, step, showNash }) {
+function Reveal({ round, step }) {
   const { average, target, guesses, number } = round
   const winners = winnersOf(guesses, target)
   const avgShown = useCountUp(average, step >= 1)
@@ -164,9 +163,9 @@ function Reveal({ round, step, showNash }) {
 
   return (
     <div className="proj-reveal">
-      <div className="proj-round" style={{ justifyContent: 'center' }}>
-        Ronda {number} <span className="muted">· {guesses.length} respuesta{guesses.length !== 1 ? 's' : ''}</span>
-      </div>
+      {step !== 4 && <div className="proj-round" style={{ justifyContent: 'center' }}>
+        Ronda {number} <span className="muted">· {guesses.length} predicci{guesses.length !== 1 ? 'ones' : 'ón'}</span>
+      </div>}
 
       {step === 0 && (
         <div className="proj-big-q rise">¿Qué tan cerca estuvieron?</div>
@@ -192,11 +191,13 @@ function Reveal({ round, step, showNash }) {
 
       {step === 3 && (
         <div className="proj-hist rise">
-          <div dangerouslySetInnerHTML={{ __html: histogramSVG(guesses, average, target, showNash) }} />
+          <div dangerouslySetInnerHTML={{ __html: histogramSVG(guesses, average, target, { size: 'proj' }) }} />
         </div>
       )}
 
-      {step === 4 && (
+      {step === 4 && <AllResponses round={round} variant="proj" />}
+
+      {step === 5 && (
         <div className="proj-winner rise">
           <div className="crown">{winners.length > 1 ? 'Empate' : 'Gana'}</div>
           <div className="names">
@@ -205,13 +206,10 @@ function Reveal({ round, step, showNash }) {
             ))}
           </div>
           <div className="detail">
-            con <b>{[...new Set(winners.map(w => w.value))].map(fmtNum).join(' / ')}</b>
+            predijo <b>{[...new Set(winners.map(w => w.value))].map(fmtNum).join(' / ')}</b>
             {' '}· objetivo <b className="hl">{fmt1(target)}</b>
             {' '}· diferencia {fmt1(winners[0].diff)}
           </div>
-          {showNash && (
-            <div className="nash rise">Equilibrio de Nash: <b>0</b> — si todos razonan sin límite, todos eligen 0.</div>
-          )}
         </div>
       )}
     </div>

@@ -5,7 +5,6 @@ export const fmtNum = n =>
 export const fmt1 = n =>
   new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 }).format(n)
 
-const clampInt = x => Math.max(0, Math.min(100, Math.round(x)))
 
 export function winnersOf(guesses, target) {
   if (!guesses.length) return []
@@ -34,114 +33,133 @@ export function buildLeaderboard(results) {
     .sort((a, b) => b.wins - a.wins || a.mean - b.mean)
 }
 
-// ── Histogram SVG (exact replica of prototype) ──────────────────────────────
+// ── Gráficos SVG ────────────────────────────────────────────────────────────
+// Los colores y fuentes salen de variables CSS (style="fill:var(--accent)"), así
+// el gráfico sigue la paleta y la tipografía elegidas.
 
-export function histogramSVG(guesses, average, target, showNash) {
-  const W = 640, H = 310
-  const m = { t: 22, r: 14, b: 38, l: 40 }
-  const pw = W - m.l - m.r
-  const ph = H - m.t - m.b
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+const txt = (x, y, s, { size = 12, fill = 'var(--muted)', weight = 400, anchor = 'middle', font = 'var(--font-num)', halo = false } = {}) =>
+  `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" style="font-family:${font};font-size:${size}px;font-weight:${weight};fill:${fill};font-variant-numeric:tabular-nums${halo ? ';stroke:var(--surface);stroke-width:5px;stroke-linejoin:round;paint-order:stroke' : ''}">${esc(s)}</text>`
 
-  const counts = new Array(101).fill(0)
-  guesses.forEach(g => { counts[clampInt(g.value)]++ })
-  const maxC = Math.max(1, ...counts)
-
-  const slotW = pw / 101
-  const xCont = c => m.l + ((c + 0.5) / 101) * pw
-  const yTop = c => m.t + ph - (c / maxC) * ph
-
-  let yaxis = ''
-  ;[0, Math.ceil(maxC / 2), maxC].forEach(c => {
-    const yy = yTop(c).toFixed(1)
-    yaxis +=
-      `<line x1="${m.l}" y1="${yy}" x2="${m.l + pw}" y2="${yy}" stroke="#EEE8DE"/>` +
-      `<text x="${m.l - 7}" y="${(parseFloat(yy) + 3).toFixed(1)}" font-family="Space Mono" font-size="9" fill="#9b9489" text-anchor="end">${c}</text>`
-  })
-
-  let bars = ''
-  for (let v = 0; v <= 100; v++) {
-    if (!counts[v]) continue
-    const by = yTop(counts[v])
-    const bx = (xCont(v) - slotW * 0.42).toFixed(2)
-    bars += `<rect x="${bx}" y="${by.toFixed(1)}" width="${(slotW * 0.84).toFixed(2)}" height="${(m.t + ph - by).toFixed(1)}" rx="1" fill="#BFD0C6"/>`
-  }
-
-  let axis = `<line x1="${m.l}" y1="${m.t + ph}" x2="${m.l + pw}" y2="${m.t + ph}" stroke="#D9D2C6"/>`
-  ;[0, 25, 50, 75, 100].forEach(v => {
-    axis += `<text x="${xCont(v).toFixed(1)}" y="${H - 14}" font-family="Space Mono" font-size="10" fill="#9b9489" text-anchor="middle">${v}</text>`
-  })
-
-  const vline = (v, color, dash, label, labY) => {
-    const xx = xCont(v).toFixed(1)
-    return (
-      `<line x1="${xx}" y1="${m.t}" x2="${xx}" y2="${m.t + ph}" stroke="${color}" stroke-width="2.5" ${dash ? 'stroke-dasharray="5 4"' : ''}/>` +
-      `<text x="${xx}" y="${labY}" font-family="Space Mono" font-size="11" font-weight="700" fill="${color}" text-anchor="middle">${label}</text>`
-    )
-  }
-
-  const nashRef = showNash ? vline(0, '#2C6A55', true, 'Nash 0', m.t - 7) : ''
-  const refs =
-    nashRef +
-    vline(average, '#756E63', true, 'Prom ' + fmt1(average), m.t - 7) +
-    vline(target, '#D8453E', false, '⅔ = ' + fmt1(target), m.t + ph + 24)
-
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${yaxis}${bars}${axis}${refs}</svg>`
+// Pastilla con texto (para las etiquetas de promedio y objetivo)
+function pill(cx, cy, label, { size, fill, text = 'var(--on-accent)' }) {
+  const w = label.length * size * 0.6 + size * 1.3
+  const h = size * 1.75
+  return (
+    `<rect x="${(cx - w / 2).toFixed(1)}" y="${(cy - h / 2).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${(h / 2).toFixed(1)}" style="fill:${fill}"/>` +
+    txt(cx, cy + size * 0.36, label, { size, fill: text, weight: 700 })
+  )
 }
 
-// ── Trend SVG (exact replica of prototype) ──────────────────────────────────
-
-export function trendSVG(results, showNash) {
-  const W = 620, H = 300
-  const m = { t: 24, r: 46, b: 34, l: 40 }
+// Histograma en grupos de 5 (0–4, 5–9, …, 95–100). Con ~30 estudiantes se lee
+// mucho mejor que 101 barras de un punto. La barra del ganador va en oro.
+export function histogramSVG(guesses, average, target, { size = 'panel' } = {}) {
+  const proj = size === 'proj'
+  const k = proj ? 1.6 : 1
+  const W = 760, H = proj ? 400 : 330
+  const m = { t: 70 * k, r: 18, b: 34 * k, l: 18 }
   const pw = W - m.l - m.r
   const ph = H - m.t - m.b
+  const x = v => m.l + (v / 100) * pw
+  const y0 = m.t + ph
 
-  if (results.length < 2) {
-    return `<svg viewBox="0 0 ${W} ${H}"><text x="${W / 2}" y="${H / 2}" font-family="Inter" font-size="14" fill="#9b9489" text-anchor="middle">Disponible desde la ronda 2 (para comparar).</text></svg>`
+  const BIN = 5, NB = 20
+  const binOf = v => Math.min(NB - 1, Math.floor(v / BIN))
+  const counts = new Array(NB).fill(0)
+  guesses.forEach(g => { counts[binOf(g.value)]++ })
+  const maxC = Math.max(1, ...counts)
+  const winBins = new Set(winnersOf(guesses, target).map(w => binOf(w.value)))
+
+  let out = ''
+  let counts_ = '' // conteos: se dibujan al final, encima de las líneas
+  // Rejilla vertical suave cada 10 y rótulos del eje X
+  for (let v = 0; v <= 100; v += 10) {
+    out += `<line x1="${x(v).toFixed(1)}" y1="${m.t}" x2="${x(v).toFixed(1)}" y2="${y0}" style="stroke:var(--line);stroke-opacity:.45"/>`
+    out += txt(x(v), H - m.b + 20 * k, v, { size: 11 * k })
   }
-
-  const maxY = Math.max(50, ...results.map(c => c.average)) * 1.08
-  const x = i => m.l + (i / (results.length - 1)) * pw
-  const y = v => m.t + ph - (v / maxY) * ph
-
-  let grid = ''
-  ;[0, maxY / 2, maxY].forEach(v => {
-    grid +=
-      `<line x1="${m.l}" y1="${y(v).toFixed(1)}" x2="${m.l + pw}" y2="${y(v).toFixed(1)}" stroke="#EDE7DD"/>` +
-      `<text x="${m.l - 8}" y="${(y(v) + 3).toFixed(1)}" font-family="Space Mono" font-size="9" fill="#9b9489" text-anchor="end">${fmt1(v)}</text>`
-  })
-
-  if (showNash) {
-    grid +=
-      `<line x1="${m.l}" y1="${y(0)}" x2="${m.l + pw}" y2="${y(0)}" stroke="#2C6A55" stroke-width="1.5" stroke-dasharray="4 4"/>` +
-      `<text x="${m.l + pw + 4}" y="${y(0) + 3}" font-family="Space Mono" font-size="9" fill="#2C6A55">Nash 0</text>`
+  // Barras con su conteo encima
+  for (let i = 0; i < NB; i++) {
+    if (!counts[i]) continue
+    const bx = x(i * BIN) + 2
+    const bw = x((i + 1) * BIN) - x(i * BIN) - 4
+    const bh = (counts[i] / maxC) * (ph - 22 * k)
+    const by = y0 - bh
+    const fill = winBins.has(i) ? 'var(--gold)' : 'var(--bar, #9FB8AC)'
+    out += `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" style="fill:${fill}"/>`
+    counts_ += txt(bx + bw / 2, by - 6 * k, counts[i], { size: 12 * k, fill: 'var(--ink)', weight: 700, halo: true })
   }
+  out += `<line x1="${m.l}" y1="${y0}" x2="${m.l + pw}" y2="${y0}" style="stroke:var(--ink);stroke-opacity:.35"/>`
 
-  let xl = ''
-  results.forEach((c, i) => {
-    xl += `<text x="${x(i).toFixed(1)}" y="${H - 10}" font-family="Space Mono" font-size="11" fill="#756E63" text-anchor="middle">R${c.number}</text>`
+  // Líneas de promedio y objetivo, con etiquetas arriba que no se tapan
+  const fs = 12 * k
+  const lab = (v, label) => ({ v, label, w: label.length * fs * 0.6 + fs * 1.3 })
+  const A = lab(average, `Prom. ${fmt1(average)}`)
+  const T = lab(target, `⅔ = ${fmt1(target)}`)
+  // Como el objetivo siempre es menor que el promedio, la pastilla del objetivo se
+  // ancla a la izquierda de su línea y la del promedio a la derecha: una sola fila,
+  // sin que ninguna línea cruce la otra pastilla. Si el objetivo está muy cerca de 0
+  // y no cabe a la izquierda, se apilan (objetivo arriba) ambas hacia la derecha.
+  const xT = x(T.v), xA = x(A.v)
+  const fitsLeft = xT - T.w - 4 >= m.l
+  let tx, ax, rowT, rowA
+  if (fitsLeft) {
+    tx = xT - T.w / 2 - 3
+    ax = xA + A.w / 2 + 3 > m.l + pw ? xA - A.w / 2 - 3 : xA + A.w / 2 + 3
+    rowT = rowA = m.t - 26 * k
+  } else {
+    tx = xT + T.w / 2 + 3
+    ax = xA + A.w / 2 + 3
+    rowT = m.t - 48 * k
+    rowA = m.t - 18 * k
+  }
+  out += `<line x1="${x(average).toFixed(1)}" y1="${rowA + 10 * k}" x2="${x(average).toFixed(1)}" y2="${y0}" style="stroke:var(--muted);stroke-width:${2 * k};stroke-dasharray:6 5"/>`
+  out += `<line x1="${x(target).toFixed(1)}" y1="${rowT + 10 * k}" x2="${x(target).toFixed(1)}" y2="${y0}" style="stroke:var(--accent);stroke-width:${2.5 * k}"/>`
+  out += counts_
+  out += pill(ax, rowA, A.label, { size: fs, fill: 'var(--muted)' })
+  out += pill(tx, rowT, T.label, { size: fs, fill: 'var(--accent)' })
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Histograma de predicciones: promedio ${fmt1(average)}, objetivo ${fmt1(target)}">${out}</svg>`
+}
+
+// Tendencia entre rondas: eje fijo 0–100, cada predicción como punto tenue y
+// las líneas de promedio y objetivo encima.
+export function trendSVG(results) {
+  const W = 620, H = 300
+  const m = { t: 20, r: 24, b: 34, l: 40 }
+  const pw = W - m.l - m.r
+  const ph = H - m.t - m.b
+  if (!results.length) return ''
+  const n = results.length
+  const x = i => (n === 1 ? m.l + pw / 2 : m.l + 28 + (i / (n - 1)) * (pw - 56))
+  const y = v => m.t + ph - (v / 100) * ph
+
+  let out = ''
+  ;[0, 33, 67, 100].forEach(v => {
+    out += `<line x1="${m.l}" y1="${y(v).toFixed(1)}" x2="${m.l + pw}" y2="${y(v).toFixed(1)}" style="stroke:var(--line);stroke-opacity:.7"/>`
+    out += txt(m.l - 8, y(v) + 4, v, { size: 11, anchor: 'end' })
   })
-
-  const series = (key, color, gid, labelAbove) => {
-    const pts = results.map((c, i) => [x(i), y(c[key])])
-    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')
-    const area =
-      line +
-      ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + y(0).toFixed(1) +
-      ' L' + pts[0][0].toFixed(1) + ' ' + y(0).toFixed(1) + ' Z'
-    let dots = '', labels = ''
-    pts.forEach((p, i) => {
-      dots += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5" fill="#fff" stroke="${color}" stroke-width="2.5"/>`
-      labels += `<text x="${p[0].toFixed(1)}" y="${(p[1] + (labelAbove ? -12 : 18)).toFixed(1)}" font-family="Space Mono" font-size="10" font-weight="700" fill="${color}" text-anchor="middle">${fmt1(results[i][key])}</text>`
+  results.forEach((r, i) => {
+    out += txt(x(i), H - 10, `R${r.number}`, { size: 12, fill: 'var(--ink)', weight: 600 })
+    // Nube de puntos con un leve desplazamiento horizontal determinista
+    r.guesses.forEach((g, j) => {
+      const jitter = (((j * 37) % 17) - 8) * 1.4
+      out += `<circle cx="${(x(i) + jitter).toFixed(1)}" cy="${y(g.value).toFixed(1)}" r="3.2" style="fill:var(--ink);fill-opacity:.16"/>`
     })
-    return `<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>${dots}${labels}`
+  })
+  const series = (key, color, dash, above) => {
+    const pts = results.map((r, i) => [x(i), y(r[key])])
+    let s = ''
+    if (pts.length > 1) {
+      const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')
+      s += `<path d="${d}" style="fill:none;stroke:${color};stroke-width:3;stroke-linecap:round;stroke-linejoin:round${dash ? ';stroke-dasharray:7 6' : ''}"/>`
+    }
+    pts.forEach((p, i) => {
+      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5" style="fill:var(--surface);stroke:${color};stroke-width:2.5"/>`
+      s += txt(p[0] + 10, p[1] + (above ? -8 : 16), fmt1(results[i][key]), { size: 11, fill: color, weight: 700, anchor: 'start' })
+    })
+    return s
   }
-
-  const defs =
-    `<defs>` +
-    `<linearGradient id="gA" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#756E63" stop-opacity="0.18"/><stop offset="100%" stop-color="#756E63" stop-opacity="0"/></linearGradient>` +
-    `<linearGradient id="gT" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#D8453E" stop-opacity="0.22"/><stop offset="100%" stop-color="#D8453E" stop-opacity="0"/></linearGradient>` +
-    `</defs>`
-
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${defs}${grid}${xl}${series('average', '#756E63', 'gA', true)}${series('target', '#D8453E', 'gT', false)}</svg>`
+  out += series('average', 'var(--muted)', true, true)
+  out += series('target', 'var(--accent)', false, false)
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tendencia de promedio y objetivo por ronda">${out}</svg>`
 }

@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { rpc } from '../api'
+import { validateFullName, checkPart } from '../lib/nameRules'
 
 function getOrCreateToken() {
-  let token = localStorage.getItem('device_token')
-  if (!token) {
-    token = crypto.randomUUID()
-    localStorage.setItem('device_token', token)
+  try {
+    let token = localStorage.getItem('device_token')
+    if (!token) {
+      token = crypto.randomUUID()
+      localStorage.setItem('device_token', token)
+    }
+    return token
+  } catch {
+    return crypto.randomUUID()
   }
-  return token
 }
 
 export default function ParticipantView() {
@@ -17,8 +22,11 @@ export default function ParticipantView() {
   const [round, setRound] = useState(null)
   const [submitted, setSubmitted] = useState(false)
   const [myValue, setMyValue] = useState(null)
+  const [history, setHistory] = useState([])
 
-  const [nameInput, setNameInput] = useState('')
+  const [firstInput, setFirstInput] = useState('')
+  const [lastInput, setLastInput] = useState('')
+  const [touched, setTouched] = useState({ first: false, last: false })
   const [guessInput, setGuessInput] = useState('')
   const [regErr, setRegErr] = useState('')
   const [guessErr, setGuessErr] = useState('')
@@ -27,8 +35,7 @@ export default function ParticipantView() {
 
   const pollRef = useRef(null)
 
-  // 1. Fetch default session on mount
-  // (reintenta cada 4 s si falla la conexión)
+  // Sesión activa (reintenta cada 4 s si falla la conexión)
   useEffect(() => {
     let cancelled = false
     let timer
@@ -43,22 +50,19 @@ export default function ParticipantView() {
     return () => { cancelled = true; clearTimeout(timer) }
   }, [])
 
-  // 2. Poll participant_state every 4s once we have a session
   const poll = useCallback(async () => {
     if (!sessionId) return
-    const { data, error } = await rpc('participant_state', {
-      p_session: sessionId,
-      p_token: token,
-    })
+    const { data, error } = await rpc('participant_state', { p_session: sessionId, p_token: token })
     if (error || !data) { setOffline(true); return }
     setOffline(false)
     setParticipant(data.participant)
     setRound(data.round)
     setSubmitted(data.submitted)
     setMyValue(data.my_value ?? null)
+    setHistory(data.my_history ?? [])
   }, [sessionId, token])
 
-  // Al cambiar de ronda, limpia el número escrito en la ronda anterior
+  // Al cambiar de ronda, limpia lo escrito en la ronda anterior
   const roundId = round?.id
   useEffect(() => {
     setGuessInput('')
@@ -72,14 +76,21 @@ export default function ParticipantView() {
     return () => clearInterval(pollRef.current)
   }, [poll, sessionId])
 
-  async function handleRegister() {
+  // Avisos mientras se escribe (solo después de tocar el campo)
+  const firstHint = touched.first ? checkPart(firstInput, 'nombre') : null
+  const lastHint = touched.last ? checkPart(lastInput, 'apellido') : null
+
+  async function handleRegister(e) {
+    e?.preventDefault()
     setRegErr('')
-    const name = nameInput.trim()
-    if (!name) { setRegErr('Escribe tu nombre.'); return }
+    setTouched({ first: true, last: true })
+    const check = validateFullName(firstInput, lastInput)
+    if (!check.ok) { setRegErr(check.error); return }
     setLoading(true)
     const { error } = await rpc('register_participant', {
       p_session: sessionId,
-      p_name: name,
+      p_first: firstInput,
+      p_last: lastInput,
       p_token: token,
     })
     setLoading(false)
@@ -87,136 +98,159 @@ export default function ParticipantView() {
     await poll()
   }
 
-  async function handleGuess() {
+  async function handleGuess(e) {
+    e?.preventDefault()
     setGuessErr('')
-    const raw = guessInput.trim().replace(',', '.')
-    if (!/^\d+(\.\d+)?$/.test(raw)) { setGuessErr('Escribe un número entre 0 y 100 (se aceptan decimales, ej. 33,5).'); return }
-    const v = parseFloat(raw)
-    if (isNaN(v) || v < 0 || v > 100) { setGuessErr('Debe estar entre 0 y 100.'); return }
+    const raw = guessInput.trim()
+    if (!/^\d{1,3}$/.test(raw) || Number(raw) > 100) {
+      setGuessErr('Escribe un número entero del 0 al 100.')
+      return
+    }
+    const v = Number(raw)
     setLoading(true)
-    const { error } = await rpc('submit_guess', {
-      p_session: sessionId,
-      p_token: token,
-      p_value: v,
-    })
+    const { error } = await rpc('submit_guess', { p_session: sessionId, p_token: token, p_value: v })
     setLoading(false)
     if (error) { setGuessErr(error.message); return }
     setMyValue(v)
     await poll()
   }
 
-  if (!sessionId) {
-    return (
-      <div className="wrap part">
-        <div className="eyebrow">Concurso de belleza de Keynes</div>
-        <h1>Cargando…</h1>
-        {offline && <p className="note">Sin conexión con el servidor. Reintentando…</p>}
-      </div>
-    )
-  }
-
   const screen = (() => {
+    if (!sessionId) return 'loading'
     if (!participant) return 'register'
     if (!round || round.status === 'closed') return 'wait'
     if (submitted) return 'sent'
     return 'guess'
   })()
 
-  return (
-    <div className="wrap part">
-      <div className="eyebrow">Concurso de belleza de Keynes</div>
-      <h1>Tu apuesta</h1>
-      <p className="lede">
-        Escribe un número del 0 al 100 (puedes usar decimales) que crees que será{' '}
-        <strong>dos tercios del promedio</strong> de todo el grupo. Gana quien más se acerque.
-      </p>
+  const nextRound = round ? (round.status === 'closed' ? round.number + 1 : round.number) : 1
 
-      {offline && (
-        <div className="error" style={{ marginBottom: 14 }}>Conexión inestable. Reintentando…</div>
+  return (
+    <div className="pv">
+      <header className="pv-top">
+        <span className="pv-brand">Concurso de Keynes</span>
+        {participant && <span className="pv-who">{participant.name}</span>}
+      </header>
+
+      {offline && <div className="pv-offline" role="status">Conexión inestable. Reintentando…</div>}
+
+      {screen === 'loading' && (
+        <main className="pv-main pv-center">
+          <span className="spinner" aria-hidden="true" />
+          <p className="pv-sub">Conectando…</p>
+        </main>
       )}
 
       {screen === 'register' && (
-        <div className="card">
-          <label className="field-label" htmlFor="pname">Tu nombre</label>
-          <input
-            type="text"
-            id="pname"
-            placeholder="Ej. Camila"
-            maxLength={40}
-            autoComplete="off"
-            value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleRegister()}
-          />
-          <button
-            className="btn btn-primary"
-            style={{ marginTop: 16 }}
-            onClick={handleRegister}
-            disabled={loading}
-          >
-            {loading ? <><span className="spinner" />Entrando…</> : 'Entrar al juego'}
-          </button>
-          {regErr && <div className="error">{regErr}</div>}
-        </div>
+        <form className="pv-main" onSubmit={handleRegister} noValidate>
+          <div className="pv-body">
+            <h1 className="pv-title">¿Cómo te llamas?</h1>
+            <p className="pv-sub">Escribe tu nombre y apellido reales. Así te verá la profesora en la lista.</p>
+            <div className="pv-fields">
+              <div className="pv-field">
+                <label htmlFor="pfirst">Nombre</label>
+                <input
+                  type="text" id="pfirst" placeholder="Camila" maxLength={20}
+                  autoComplete="given-name" autoCapitalize="words" enterKeyHint="next"
+                  value={firstInput}
+                  aria-invalid={!!firstHint}
+                  onChange={e => setFirstInput(e.target.value)}
+                  onBlur={() => setTouched(t => ({ ...t, first: true }))}
+                />
+                {firstHint && <span className="pv-hint">{firstHint}</span>}
+              </div>
+              <div className="pv-field">
+                <label htmlFor="plast">Apellido</label>
+                <input
+                  type="text" id="plast" placeholder="Rojas" maxLength={20}
+                  autoComplete="family-name" autoCapitalize="words" enterKeyHint="go"
+                  value={lastInput}
+                  aria-invalid={!!lastHint}
+                  onChange={e => setLastInput(e.target.value)}
+                  onBlur={() => setTouched(t => ({ ...t, last: true }))}
+                />
+                {lastHint && <span className="pv-hint">{lastHint}</span>}
+              </div>
+            </div>
+            {regErr && <div className="pv-error" role="alert">{regErr}</div>}
+          </div>
+          <div className="pv-action">
+            <button type="submit" className="btn btn-primary pv-btn" disabled={loading}>
+              {loading ? <><span className="spinner" />Entrando…</> : 'Entrar al juego'}
+            </button>
+          </div>
+        </form>
       )}
 
       {screen === 'wait' && (
-        <div className="card">
-          <div className="status">{participant?.name}</div>
-          <div style={{ margin: '16px 0', fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 800, fontSize: 22 }}>
-            {round
-              ? 'Ronda cerrada. Espera la siguiente…'
-              : 'Esperando a que el anfitrión abra la ronda…'}
+        <main className="pv-main">
+          <div className="pv-body pv-center">
+            <span className="pv-pulse" aria-hidden="true" />
+            <h1 className="pv-title">Mira el proyector</h1>
+            <p className="pv-sub">
+              {round ? `La ronda ${round.number} terminó. ` : ''}La ronda {nextRound} empieza pronto.
+            </p>
+            <Rules />
           </div>
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-            Cuando se abra una ronda podrás enviar tu número aquí mismo.
-          </p>
-        </div>
+          <History history={history} />
+        </main>
       )}
 
       {screen === 'guess' && (
-        <div className="card">
-          <div className="status">Ronda {round.number} abierta</div>
-          <label className="field-label" htmlFor="pnum" style={{ marginTop: 14 }}>
-            Tu número (0–100, decimales con coma o punto)
-          </label>
-          <input
-            type="text"
-            className="num"
-            id="pnum"
-            inputMode="decimal"
-            placeholder="0"
-            autoComplete="off"
-            value={guessInput}
-            onChange={e => setGuessInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleGuess()}
-          />
-          <button
-            className="btn btn-primary"
-            style={{ marginTop: 16 }}
-            onClick={handleGuess}
-            disabled={loading}
-          >
-            {loading ? <><span className="spinner" />Enviando…</> : 'Enviar'}
-          </button>
-          {guessErr && <div className="error">{guessErr}</div>}
-          <p className="note" style={{ textAlign: 'left', marginTop: 12 }}>
-            Una vez enviado, tu número queda fijo hasta el cierre de la ronda.
-          </p>
-        </div>
+        <form className="pv-main" onSubmit={handleGuess} noValidate>
+          <div className="pv-body">
+            <span className="pill open"><span className="dot" />Ronda {round.number} abierta</span>
+            <label className="pv-title" htmlFor="pnum">Tu predicción</label>
+            <input
+              type="text" className="pv-num" id="pnum"
+              inputMode="numeric" pattern="[0-9]*" maxLength={3}
+              placeholder="0" autoComplete="off" enterKeyHint="send"
+              value={guessInput}
+              onChange={e => setGuessInput(e.target.value.replace(/\D/g, '').slice(0, 3))}
+            />
+            <p className="pv-sub pv-tight">Un número entero del 0 al 100. Gana quien más se acerque a <b>⅔ del promedio</b> del grupo.</p>
+            {guessErr && <div className="pv-error" role="alert">{guessErr}</div>}
+          </div>
+          <div className="pv-action">
+            <button type="submit" className="btn btn-primary pv-btn" disabled={loading || guessInput === ''}>
+              {loading ? <><span className="spinner" />Enviando…</> : 'Enviar predicción'}
+            </button>
+            <p className="pv-note">No podrás cambiarla después.</p>
+          </div>
+        </form>
       )}
 
       {screen === 'sent' && (
-        <div className="card">
-          <span className="pill open"><span className="dot" />Enviado</span>
-          <div style={{ margin: '16px 0', fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 40 }}>
-            {myValue == null ? '—' : String(myValue).replace('.', ',')}
+        <main className="pv-main">
+          <div className="pv-body pv-center">
+            <span className="pill open"><span className="dot" />Predicción registrada</span>
+            <div className="pv-big" aria-label={`Tu predicción: ${myValue ?? ''}`}>{myValue ?? '—'}</div>
+            <p className="pv-sub">Ronda {round.number}. El resultado aparece en el proyector.</p>
           </div>
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-            Tu número quedó registrado y fijo. Espera a que el anfitrión cierre la ronda. No verás el resultado desde aquí.
-          </p>
-        </div>
+          <History history={history} />
+        </main>
       )}
     </div>
+  )
+}
+
+function Rules() {
+  return (
+    <details className="pv-rules">
+      <summary>¿Cómo se juega?</summary>
+      <p>Cada persona escribe un número entero del 0 al 100. Se calcula el promedio del grupo y se multiplica por ⅔. Gana quien quede más cerca de ese resultado.</p>
+    </details>
+  )
+}
+
+function History({ history }) {
+  if (!history?.length) return null
+  return (
+    <footer className="pv-history">
+      <span className="pv-history-k">Tus predicciones</span>
+      <span className="pv-history-v">
+        {history.map(h => <span key={h.number}>R{h.number} <b>{h.value}</b></span>)}
+      </span>
+    </footer>
   )
 }

@@ -1,3 +1,5 @@
+import { validateFullName } from '../src/lib/nameRules.js'
+
 // API del Concurso de belleza de Keynes sobre Cloudflare Workers + D1.
 // Reemplaza las funciones RPC de Supabase: el frontend llama POST /api/<función>
 // con los mismos parámetros (p_session, p_token, …) y nunca toca la base directamente.
@@ -65,10 +67,13 @@ const handlers = {
     return id
   },
 
-  async register_participant(db, { p_session, p_name, p_token }) {
+  // Nombre y apellido obligatorios, validados con las mismas reglas que el frontend
+  async register_participant(db, { p_session, p_first, p_last, p_token }) {
     const session = await requireSession(db, p_session)
     const token = requireStr(p_token, 'p_token', 100)
-    const name = requireStr(p_name, 'nombre', 40).replace(/\s+/g, ' ')
+    const check = validateFullName(p_first, p_last)
+    if (!check.ok) throw new ApiError(check.error, 422)
+    const name = check.full
 
     const mine = await db
       .prepare('SELECT id, name FROM participants WHERE session_id = ? AND token = ?')
@@ -79,7 +84,7 @@ const handlers = {
       .prepare('SELECT id FROM participants WHERE session_id = ? AND name = ? COLLATE NOCASE AND token <> ?')
       .bind(session, name, token)
       .first()
-    if (taken) throw new ApiError('Ese nombre ya está en uso. Agrega tu apellido o una inicial.', 409)
+    if (taken) throw new ApiError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a la profesora; si no, agrega tu segundo apellido.', 409)
 
     if (mine) {
       if (mine.name !== name) {
@@ -95,7 +100,7 @@ const handlers = {
         .run()
     } catch (e) {
       if (String(e.message).includes('UNIQUE')) {
-        throw new ApiError('Ese nombre ya está en uso. Agrega tu apellido o una inicial.', 409)
+        throw new ApiError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a la profesora; si no, agrega tu segundo apellido.', 409)
       }
       throw e
     }
@@ -123,15 +128,27 @@ const handlers = {
         my_value = g.value
       }
     }
-    return { participant: participant ?? null, round: round ?? null, submitted, my_value }
+    // Historial propio: solo las predicciones de esta persona en rondas cerradas
+    let my_history = []
+    if (participant) {
+      const h = await db
+        .prepare(
+          `SELECT r.number, g.value FROM guesses g JOIN rounds r ON r.id = g.round_id
+           WHERE g.participant_id = ? AND r.status = 'closed' ORDER BY r.number`
+        )
+        .bind(participant.id)
+        .all()
+      my_history = h.results
+    }
+    return { participant: participant ?? null, round: round ?? null, submitted, my_value, my_history }
   },
 
   async submit_guess(db, { p_session, p_token, p_value }) {
     const session = await requireSession(db, p_session)
     const token = requireStr(p_token, 'p_token', 100)
-    const value = Number(p_value)
-    if (!Number.isFinite(value) || value < 0 || value > 100) {
-      throw new ApiError('El número debe estar entre 0 y 100.')
+    const value = typeof p_value === 'string' && /^\d{1,3}$/.test(p_value.trim()) ? Number(p_value) : p_value
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 100) {
+      throw new ApiError('Escribe un número entero del 0 al 100.')
     }
     const participant = await db
       .prepare('SELECT id FROM participants WHERE session_id = ? AND token = ?')
@@ -220,10 +237,22 @@ const handlers = {
       ;(byRound[g.round_id] ??= []).push({ pid: g.pid, name: g.name, value: g.value })
     }
     const participant_names = names.results.map(r => r.name)
+    // Quién ya respondió en la ronda actual (solo nombres, nunca valores mientras está abierta)
+    const cur = current.results[0] ?? null
+    if (cur) {
+      const sub = await db
+        .prepare(
+          `SELECT p.name FROM guesses g JOIN participants p ON p.id = g.participant_id
+           WHERE g.round_id = ? ORDER BY g.created_at`
+        )
+        .bind(cur.id)
+        .all()
+      cur.submitted_names = sub.results.map(r => r.name)
+    }
     return {
       participants: participant_names.length,
       participant_names,
-      current: current.results[0] ?? null,
+      current: cur,
       results: closed.results.map(r => {
         const guesses = byRound[r.id] ?? []
         return { number: r.number, average: r.average, target: r.target, n: guesses.length, guesses }
