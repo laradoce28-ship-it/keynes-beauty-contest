@@ -142,7 +142,7 @@ export default function HostView() {
             id="pin"
             placeholder="Tu PIN"
             autoComplete="off"
-            inputMode="numeric"
+            autoCapitalize="characters"
             value={pinInput}
             onChange={e => setPinInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handlePinSubmit()}

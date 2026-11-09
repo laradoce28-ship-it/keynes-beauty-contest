@@ -37,7 +37,8 @@ function safeEqual(a, b) {
 
 function checkPin(env, pin) {
   if (!env.HOST_PIN) throw new ApiError('El servidor no tiene PIN configurado (HOST_PIN).', 500)
-  if (typeof pin !== 'string' || !safeEqual(pin.trim(), env.HOST_PIN)) {
+  // El PIN se compara sin distinguir mayúsculas ni minúsculas
+  if (typeof pin !== 'string' || !safeEqual(pin.trim().toLowerCase(), String(env.HOST_PIN).trim().toLowerCase())) {
     throw new ApiError('PIN incorrecto.', 401)
   }
 }
