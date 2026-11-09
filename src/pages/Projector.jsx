@@ -35,6 +35,20 @@ function useCountUp(value, active, duration = 1400) {
   return shown
 }
 
+// Siempre con un decimal ("0,0" … "14,3") para que la coma no aparezca y desaparezca
+const fmtFixed1 = n => new Intl.NumberFormat('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n)
+
+// Número animado sin saltos: una copia invisible del valor final reserva el ancho,
+// y el valor que sube se alinea a la derecha encima, así las cifras no se mueven.
+function AnimNum({ shown, final }) {
+  return (
+    <span className="anum" aria-label={fmtFixed1(final)}>
+      <span className="anum-ghost" aria-hidden="true">{fmtFixed1(final)}</span>
+      <span className="anum-live" aria-hidden="true">{fmtFixed1(shown)}</span>
+    </span>
+  )
+}
+
 export default function Projector({
   hostData, participantUrl, nextRoundNum, loading,
   onOpenRound, onCloseRound, onExit,
@@ -174,14 +188,14 @@ function Reveal({ round, step }) {
       {step >= 1 && step <= 2 && (
         <div className="proj-nums">
           <div className="proj-num rise">
-            <div className="v">{fmt1(avgShown)}</div>
+            <div className="v"><AnimNum shown={avgShown} final={average} /></div>
             <div className="c">promedio del grupo</div>
           </div>
           {step >= 2 && (
             <>
               <div className="proj-op rise">× ⅔ =</div>
               <div className="proj-num accent rise">
-                <div className="v">{fmt1(tgtShown)}</div>
+                <div className="v"><AnimNum shown={tgtShown} final={target} /></div>
                 <div className="c">número objetivo</div>
               </div>
             </>
