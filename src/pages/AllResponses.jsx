@@ -53,7 +53,7 @@ export default function AllResponses({ round, variant = 'panel' }) {
   // En el proyector: 1, 2 o 3 columnas según cuántos haya; la letra se ajusta a las filas (ver .proj-list)
   const cols = !isProj ? 1 : rows.length <= 14 ? 1 : rows.length <= 40 ? 2 : 3
   const perCol = Math.ceil(rows.length / cols)
-  const head = <div className="ar-colhead ar-cols" aria-hidden="true"><span>#</span><span>Nombre</span><span className="ar-scale">Escala 0–100</span><span>{isProj ? 'Predicción' : 'Pred.'}</span><span>{isProj ? 'Distancia' : 'Dif.'}</span>{!isProj && <span />}</div>
+  const head = <div className="ar-colhead ar-cols" aria-hidden="true"><span>#</span><span>Nombre</span><span>{isProj ? 'Predicción' : 'Pred.'}</span><span>{isProj ? 'Distancia' : 'Dif.'}</span>{!isProj && <span />}</div>
 
   const list = (
     <>
@@ -67,7 +67,6 @@ export default function AllResponses({ round, variant = 'panel' }) {
           >
             <span className="ar-rank">{r.rank}</span>
             <span className="ar-name" title={r.name}>{r.name}</span>
-            <span className="ar-bar" aria-hidden="true"><i style={{ width: `${r.value}%` }} /></span>
             <span className="ar-val">{r.value}</span>
             <span className="ar-diff">{fmt1(r.diff)}</span>
             {!isProj && (
