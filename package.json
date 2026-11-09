@@ -1,5 +1,5 @@
 {
-  "name": "keynes-beauty-contest",
+  "name": "concurso-keynes",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -8,8 +8,8 @@
     "dev:api": "wrangler dev --port 8787",
     "build": "vite build",
     "preview": "npm run build && wrangler dev",
-    "db:migrate:local": "wrangler d1 migrations apply keynes-beauty-contest --local",
-    "db:migrate:remote": "wrangler d1 migrations apply keynes-beauty-contest --remote",
+    "db:migrate:local": "wrangler d1 migrations apply concurso-keynes --local",
+    "db:migrate:remote": "wrangler d1 migrations apply concurso-keynes --remote",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

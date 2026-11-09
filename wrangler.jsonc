@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "keynes-beauty-contest",
+  "name": "concurso-keynes",
   "main": "worker/index.js",
   "compatibility_date": "2026-10-01",
   "assets": {
@@ -12,8 +12,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "keynes-beauty-contest",
-      "database_id": "ccde5c4d-24ae-45c7-93ef-a1a9b3971e54",
+      "database_name": "concurso-keynes",
+      "database_id": "3fdedf4b-5a5e-48b7-8633-45ee4b4b5e6e",
       "migrations_dir": "migrations"
     }
   ],
