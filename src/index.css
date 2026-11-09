@@ -561,3 +561,8 @@ body:has(.demo) { padding: 0; }
 /* Muchos nombres (4–5 columnas): chips más compactos para que quepan 100 */
 .proj-roster-list.dense { gap: .35vh .5vw; }
 .proj-roster-list.dense .rchip { padding: .14em .55em; }
+/* La regla del juego vuelve a ser protagonista en la recolección */
+.proj-collect-left .proj-qr { width: min(32vh, 21vw); }
+.proj-collect-left .proj-instr { font-size: clamp(20px, 1.8vw, 34px); line-height: 1.3; font-weight: 500; max-width: none;
+  background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: 16px; padding: 1.6vh 1.2vw; }
+.proj-collect-left .proj-instr b { font-weight: 800; }
