@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { rpc } from '../api'
+import { rpc, isDemo, POLL_MS } from '../api'
 import Projector from './Projector'
 import AllResponses from './AllResponses'
 import { fmt1, fmtNum, winnersOf, buildLeaderboard, histogramSVG, trendSVG } from '../lib/gameCalc'
@@ -11,6 +11,7 @@ export default function HostView() {
   const [pinInput, setPinInput] = useState('')
   // El PIN se recuerda en esta pestaña (sessionStorage) para sobrevivir a una recarga del proyector
   const [pin, setPin] = useState(() => {
+    if (isDemo) return 'demo'
     try { return sessionStorage.getItem('host_pin') } catch { return null }
   })
   const [pinErr, setPinErr] = useState('')
@@ -18,7 +19,7 @@ export default function HostView() {
   const [hostData, setHostData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [offline, setOffline] = useState(false)
-  const [projector, setProjector] = useState(false)
+  const [projector, setProjector] = useState(() => isDemo && new URLSearchParams(location.search).get('proyector') === '1')
   const [toast, setToast] = useState(null)
   const [confirmReset, setConfirmReset] = useState(false)
   const toastTimer = useRef(null)
@@ -75,7 +76,7 @@ export default function HostView() {
       if (err?.status === 401) forgetPin() // el PIN guardado ya no es válido
     }
     tick()
-    pollRef.current = setInterval(tick, 4000)
+    pollRef.current = setInterval(tick, POLL_MS)
     return () => clearInterval(pollRef.current)
   }, [pin, sessionId, fetchHostState, forgetPin])
 

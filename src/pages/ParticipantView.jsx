@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { rpc } from '../api'
+import { rpc, isDemo, POLL_MS } from '../api'
 import { validateFullName, checkPart } from '../lib/nameRules'
 
 function getOrCreateToken() {
+  // En la demo, la identidad viene de ?as= (el laboratorio elige a quién ver)
+  if (isDemo) return new URLSearchParams(location.search).get('as') || 'demo-yo'
   try {
     let token = localStorage.getItem('device_token')
     if (!token) {
@@ -72,7 +74,7 @@ export default function ParticipantView() {
   useEffect(() => {
     if (!sessionId) return
     poll()
-    pollRef.current = setInterval(poll, 4000)
+    pollRef.current = setInterval(poll, POLL_MS)
     return () => clearInterval(pollRef.current)
   }, [poll, sessionId])
 
