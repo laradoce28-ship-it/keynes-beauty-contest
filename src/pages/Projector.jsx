@@ -112,7 +112,7 @@ export default function Projector({
       <div className="proj-stage">
         {revealing
           ? <Reveal round={lastClosed} step={step} listPage={listPage} listPages={listPages} />
-          : <Collect current={current} total={total} url={participantUrl} nextRoundNum={nextRoundNum} />}
+          : <Collect current={current} names={hostData?.participant_names ?? []} submitted={current?.submitted_names ?? []} url={participantUrl} nextRoundNum={nextRoundNum} />}
       </div>
 
       <div className="proj-bar">
@@ -150,33 +150,71 @@ export default function Projector({
   )
 }
 
-function Collect({ current, total, url, nextRoundNum }) {
+// En la lista en vivo, con muchas columnas el último apellido se abrevia: "María José González D."
+function shortName(name) {
+  const t = name.split(" ")
+  return t.length >= 3 ? [...t.slice(0, -1), t[t.length - 1][0] + "."].join(" ") : name
+}
+
+// Pantalla de recolección: a la izquierda ronda, QR e instrucciones; a la derecha, los nombres
+// en vivo en orden de llegada (no se reordenan), con quién ya respondió marcado en verde.
+function Collect({ current, names, submitted, url, nextRoundNum }) {
   const isOpen = current?.status === 'open'
   const count = isOpen ? current.count : 0
+  const done = new Set(isOpen ? submitted : [])
+  const n = names.length
+  const cols = n <= 10 ? 2 : n <= 36 ? 3 : n <= 64 ? 4 : 5
+  const rows = Math.max(1, Math.ceil(n / cols))
+  const abbreviate = cols >= 4
+  const host = url.replace(/^https?:\/\//, '').replace(/\/$/, '')
   return (
     <div className="proj-collect">
-      <div className="proj-qr">
-        <QRCodeSVG value={url} size={512} style={{ width: '100%', height: 'auto' }} />
-        <div className="proj-url">{url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</div>
-      </div>
-      <div className="proj-collect-info">
+      <div className="proj-collect-left">
         <div className="proj-round">
           {isOpen ? `Ronda ${current.number}` : `Ronda ${nextRoundNum}`}
           <span className={`pill ${isOpen ? 'open' : 'closed'}`}>
             <span className="dot" />{isOpen ? 'Abierta' : 'Por abrir'}
           </span>
         </div>
+        <div className="proj-qr">
+          <QRCodeSVG value={url} size={512} style={{ width: '100%', height: 'auto' }} />
+          <div className="proj-url">
+            {host.split('.').map((part, i, arr) => (
+              <span key={i}>{part}{i < arr.length - 1 && <>.<wbr /></>}</span>
+            ))}
+          </div>
+        </div>
         <p className="proj-instr">
           Escanea el código y escribe tu predicción: un número entero del <b>0 al 100</b>.
           Gana quien más se acerque a <b className="hl">⅔ del promedio</b> del grupo.
         </p>
-        <div className="proj-counter" aria-live="polite">
-          <span className={isOpen ? 'live' : ''}>{count}</span>
-          <span className="sep">/</span>
-          <span>{total}</span>
-        </div>
-        <div className="proj-cap">{isOpen ? 'predicciones recibidas' : `participante${total !== 1 ? 's' : ''} conectado${total !== 1 ? 's' : ''}`}</div>
       </div>
+
+      <section className="proj-roster" aria-label="Participantes">
+        <header className="proj-roster-head" aria-live="polite">
+          {isOpen
+            ? <><span className="live">{count}</span><span className="sep">/</span><span>{n}</span></>
+            : <span>{n}</span>}
+          <span className="proj-roster-cap">
+            {isOpen ? 'predicciones' : n === 1 ? 'conectado' : 'conectados'}
+          </span>
+        </header>
+        {n === 0
+          ? <div className="proj-roster-empty">Aún no entra nadie. Los nombres aparecerán aquí.</div>
+          : (
+            <ul className={`proj-roster-list${cols >= 4 ? ' dense' : ''}`} style={{ '--cols': cols, '--rows': rows }}>
+              {names.map(name => {
+                const st = isOpen ? (done.has(name) ? 'done' : 'wait') : ''
+                return (
+                  <li key={name} className={`rchip ${st}`} title={name}>
+                    {st === 'done' && <span className="ck" aria-label="respondió">✓</span>}
+                    <span className="rname">{abbreviate ? shortName(name) : name}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+      </section>
     </div>
   )
 }

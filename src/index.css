@@ -319,9 +319,9 @@ table.grid tr.win td:first-child::after { content: ' ★'; }
 .proj-round .muted { color: var(--muted); font-weight: 600; }
 
 /* Recolección */
-.proj-collect { display: grid; grid-template-columns: minmax(0, 40vh) 1fr; gap: 6vw; align-items: center; width: 100%; max-width: 1500px; }
+.proj-collect { display: grid; grid-template-columns: minmax(0, 30vw) minmax(0, 1fr); gap: 3vw; align-items: stretch; width: 100%; max-width: 1760px; max-height: 100%; }
 .proj-qr { background: #fff; border: 1px solid var(--line); border-radius: 22px; padding: 2.4vh; box-shadow: var(--shadow); }
-.proj-url { font-family: var(--font-label); font-weight: 700; text-align: center; margin-top: 1.4vh; font-size: clamp(12px, 1.3vw, 22px); word-break: break-all; }
+.proj-url { font-family: var(--font-label); font-weight: 700; text-align: center; margin-top: 1.4vh; font-size: clamp(12px, 1.05vw, 19px); word-break: normal; overflow-wrap: normal; text-wrap: balance; }
 .proj-instr { font-size: clamp(18px, 1.9vw, 34px); line-height: 1.35; color: var(--ink); margin: 3vh 0 4vh; max-width: 30ch; }
 .proj-instr .hl { color: var(--accent); }
 .proj-counter { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 700; font-size: clamp(64px, 11vw, 210px); line-height: .9; letter-spacing: -.03em; }
@@ -529,3 +529,35 @@ body:has(.demo) { padding: 0; }
 .proj-winner .names.many { grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); --fs: min(2.6vw, calc(46vh / (var(--rows, 3) * 1.35)), calc(84vw / (var(--cols, 3) * 13))); max-width: 92vw; }
 .proj-winner .names.many .name { font-size: var(--fs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .proj-page { font-size: .8em; color: var(--muted); }
+
+/* ── Recolección: columna izquierda + lista de nombres en vivo ─────────────── */
+.proj-collect-left { display: flex; flex-direction: column; justify-content: center; gap: 2.4vh; min-width: 0; }
+.proj-collect-left .proj-round { font-size: clamp(32px, 3.6vw, 64px); }
+.proj-collect-left .proj-qr { width: min(38vh, 26vw); }
+.proj-collect-left .proj-instr { font-size: clamp(16px, 1.35vw, 24px); max-width: 28ch; margin: 0; }
+.proj-roster { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow);
+  padding: 2.4vh 1.8vw; display: flex; flex-direction: column; gap: 2vh; min-width: 0; min-height: 0; max-height: 100%; }
+.proj-roster-head { display: flex; align-items: baseline; flex-wrap: wrap; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 800;
+  font-size: clamp(44px, 4.8vw, 92px); line-height: 1; letter-spacing: -.02em; }
+.proj-roster-head .live { color: var(--green); }
+.proj-roster-head .sep { color: var(--line); margin: 0 .12em; }
+.proj-roster-cap { font-family: var(--font-body); font-size: clamp(14px, 1.3vw, 24px); font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em; margin-left: .7em; }
+.proj-roster-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: .6vh .7vw; align-content: start; --fs: max(11px, min(1.6vw, calc(56vh / (var(--rows, 1) * 2)), calc(54vw / (var(--cols, 3) * 13.5)))); font-size: var(--fs); min-height: 0; }
+.rchip { display: flex; align-items: center; gap: .35em; min-width: 0; padding: .24em .7em; border-radius: 999px; font-weight: 600; line-height: 1.25;
+  background: var(--chip); color: var(--ink); border: 1px solid transparent; white-space: nowrap;
+  animation: chip-in 240ms ease-out; transition: background-color 400ms, border-color 400ms, color 400ms; }
+.rchip .rname { overflow: hidden; text-overflow: ellipsis; }
+.rchip.wait { background: var(--surface); border: 1px dashed var(--line); color: var(--muted); }
+.rchip.done { background: var(--green-soft); border-color: var(--green-line); color: var(--ink); }
+.rchip .ck { color: var(--green); font-weight: 800; font-size: 1.1em; animation: ck-pop 200ms ease-out; }
+@keyframes chip-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes ck-pop { from { transform: scale(.6); } to { transform: none; } }
+.proj-roster-empty { flex: 1; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: clamp(18px, 1.6vw, 30px);
+  border: 2px dashed var(--line); border-radius: 16px; padding: 4vh 2vw; }
+@media (prefers-reduced-motion: reduce) { .rchip, .rchip .ck { animation: none; transition: none; } }
+@media (max-width: 760px) { .proj-collect-left { align-items: center; text-align: center; } .proj-collect-left .proj-qr { width: min(70vw, 34vh); } }
+/* Muchos nombres (4–5 columnas): chips más compactos para que quepan 100 */
+.proj-roster-list.dense { gap: .35vh .5vw; }
+.proj-roster-list.dense .rchip { padding: .14em .55em; }
