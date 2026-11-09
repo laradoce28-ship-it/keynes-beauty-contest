@@ -53,9 +53,55 @@ const ROOTS_C = ROOTS.map(collapse)
 const LONG = ROOTS_C.filter(r => r.length >= 6)
 const SHORT = ROOTS_C.filter(r => r.length < 6)
 
+// ── Famosos, superhéroes y personajes ─────────────────────────────────────
+// Nombres de fantasía o de famosos que arruinan la lista del curso. Los nombres de pila
+// comunes (Jordan, Yordan, Mario, Robin, Ronaldo…) siguen permitidos: solo se bloquea
+// el personaje completo o el nombre artístico inconfundible.
+
+// Superhéroes y personajes: se buscan dentro del texto unido ("Super Man" → "superman")
+const CHARACTER_ROOTS = [
+  'batman', 'superman', 'spiderman', 'hombrearana', 'ironman', 'wolverine', 'deadpool', 'aquaman',
+  'wonderwoman', 'mujermaravilla', 'capitanamerica', 'captainamerica', 'blackpanther', 'panteranegra',
+  'antman', 'hulk', 'thanos', 'voldemort', 'harrypotter', 'darthvader', 'skywalker', 'chapulin',
+  'condorito', 'pikachu', 'naruto', 'sasuke', 'vegeta', 'shrek', 'mickeymouse', 'minion', 'homerosimpson',
+  'bartsimpson', 'spongebob', 'bobesponja', 'patricioestrella', 'superheroe', 'superheroina',
+]
+
+// Famosos: nombre completo (nombre + apellido juntos)
+const FAMOUS_FULL = [
+  'elonmusk', 'donaldtrump', 'joebiden', 'barackobama', 'vladimirputin', 'nicolasmaduro',
+  'gabrielboric', 'joseantoniokast', 'josekast', 'sebastianpinera', 'michellebachelet', 'evelynmatthei',
+  'lionelmessi', 'cristianoronaldo', 'michaeljordan', 'alexissanchez', 'arturovidal', 'claudiobravo',
+  'kylianmbappe', 'taylorswift', 'billieeilish', 'harrystyles', 'arianagrande', 'selenagomez',
+  'kimkardashian', 'karolg', 'badbunny', 'pesopluma', 'jbalvin', 'myketowers', 'crismj', 'polimawestcoast',
+  'monlaferte', 'denisrosenthal', 'marcoantoniosolis', 'markzuckerberg', 'billgates',
+  'jeffbezos', 'mrbeast', 'ibai', 'elrubius', 'auronplay', 'germangarmendia', 'yordanveintitres',
+]
+
+// Famosos y apodos inconfundibles como palabra suelta (en nombre o apellido)
+const FAMOUS_WORDS = [
+  'chayanne', 'shakira', 'musk', 'trump', 'kast', 'boric', 'bachelet', 'putin', 'obama', 'biden',
+  'messi', 'neymar', 'mbappe', 'maluma', 'ozuna', 'anuel', 'duki', 'bizarrap', 'pailita', 'marcianeke',
+  'tini', 'rosalia', 'beyonce', 'rihanna', 'eminem', 'kardashian', 'zuckerberg', 'goku', 'yoda', 'thor',
+  'joker', 'guason', 'mrbean', 'xokas',
+]
+
+const CHAR_C = CHARACTER_ROOTS.map(collapse)
+const FULL_SET = new Set(FAMOUS_FULL.map(collapse))
+const FAMOUS_SET = new Set(FAMOUS_WORDS.map(collapse))
+
+function isFamous(tokens, joined) {
+  if (CHAR_C.some(r => joined.includes(r))) return true
+  if (FULL_SET.has(joined)) return true
+  // nombre + primer apellido también ("José Antonio Kast Rist" → "joseantoniokast")
+  for (let i = 2; i < tokens.length; i++) if (FULL_SET.has(collapse(tokens.slice(0, i).join('')))) return true
+  return tokens.some(t => FAMOUS_SET.has(collapse(t)))
+}
+
 function hasProfanity(first, last) {
   const tokens = `${first} ${last}`.split(/[ '\-]+/).filter(Boolean)
   const joined = collapse(tokens.join(''))
+  if (isFamous(tokens, joined)) return true
   if (LONG.some(r => joined.includes(r))) return true
   return tokens.some((t, i) => {
     const c = collapse(t)
