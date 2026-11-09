@@ -185,8 +185,8 @@ function Collect({ current, names, submitted, url, nextRoundNum }) {
           </div>
         </div>
         <p className="proj-instr">
-          Escanea el código y escribe tu predicción: un número entero del <b>0 al 100</b>.
-          Gana quien más se acerque a <b className="hl">⅔ del promedio</b> del grupo.
+          Escanea y escribe un número entero del <b>0 al 100</b>.
+          Gana quien más se acerque a <b className="hl">⅔ del promedio</b>.
         </p>
       </div>
 
