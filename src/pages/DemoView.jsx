@@ -3,7 +3,7 @@ import {
   DEMO_PEOPLE, demoAddStudents, demoVote, demoVoteValues, demoOpen, demoClose, demoReset, demoSummary,
 } from '../lib/mockApi'
 
-// Laboratorio de interfaz: muestra el proyector, el panel docente y un celular a la vez,
+// Laboratorio de interfaz: muestra el proyector, el panel de control y un celular a la vez,
 // todos funcionando contra el backend simulado (datos solo en este navegador).
 // Los botones de arriba hacen avanzar el juego para ver cada estado.
 
@@ -134,10 +134,10 @@ export default function DemoView() {
       <div className="demo-row">
         <section className="demo-sec">
           <div className="demo-sec-head">
-            <h2>Panel docente</h2>
+            <h2>Panel de control</h2>
             <span>laptop 1280 px · se puede desplazar dentro</span>
           </div>
-          <ScaledFrame key={'h' + frameKey} title="Panel docente" src="/host?demo=1" w={1280} h={900} />
+          <ScaledFrame key={'h' + frameKey} title="Panel de control" src="/host?demo=1" w={1280} h={900} />
         </section>
 
         <section className="demo-sec demo-phone">

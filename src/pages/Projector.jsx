@@ -5,7 +5,7 @@ import AllResponses from './AllResponses'
 
 // Modo proyector: pantalla completa pensada para la sala.
 // - Ronda abierta (o sin rondas): QR grande + contador de respuestas.
-// - Ronda cerrada: revelación por pasos que controla el anfitrión
+// - Ronda cerrada: revelación por pasos que controla quien dirige el juego
 //   (→ / Espacio avanza, ← retrocede, F pantalla completa, Esc sale).
 
 const STEPS = ['intro', 'average', 'target', 'histogram', 'list', 'winner']

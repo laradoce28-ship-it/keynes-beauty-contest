@@ -147,7 +147,7 @@ export default function ParticipantView() {
         <form className="pv-main" onSubmit={handleRegister} noValidate>
           <div className="pv-body">
             <h1 className="pv-title">¿Cómo te llamas?</h1>
-            <p className="pv-sub">Escribe tu nombre y apellido reales. Así te verá la profesora en la lista.</p>
+            <p className="pv-sub">Escribe tu nombre y apellido reales. Así aparecerás en la lista del juego.</p>
             <div className="pv-fields">
               <div className="pv-field">
                 <label htmlFor="pfirst">Nombre</label>

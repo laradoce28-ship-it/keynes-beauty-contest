@@ -85,7 +85,7 @@ const handlers = {
       .prepare('SELECT id FROM participants WHERE session_id = ? AND name = ? COLLATE NOCASE AND token <> ?')
       .bind(session, name, token)
       .first()
-    if (taken) throw new ApiError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a la profesora; si no, agrega tu segundo apellido.', 409)
+    if (taken) throw new ApiError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a quien dirige el juego; si no, agrega tu segundo apellido.', 409)
 
     if (mine) {
       if (mine.name !== name) {
@@ -101,7 +101,7 @@ const handlers = {
         .run()
     } catch (e) {
       if (String(e.message).includes('UNIQUE')) {
-        throw new ApiError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a la profesora; si no, agrega tu segundo apellido.', 409)
+        throw new ApiError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a quien dirige el juego; si no, agrega tu segundo apellido.', 409)
       }
       throw e
     }

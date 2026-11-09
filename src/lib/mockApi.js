@@ -50,7 +50,7 @@ const handlers = {
     const name = check.full
     const mine = db.participants.find(p => p.token === p_token)
     const taken = db.participants.find(p => p.token !== p_token && p.name.toLowerCase() === name.toLowerCase())
-    if (taken) throw new MockError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a la profesora; si no, agrega tu segundo apellido.', 409)
+    if (taken) throw new MockError('Ya hay alguien con ese nombre. Si eres tú y cambiaste de celular o navegador, avísale a quien dirige el juego; si no, agrega tu segundo apellido.', 409)
     if (mine) { mine.name = name; return mine.id }
     const p = { id: uuid(), name, token: p_token, created: now() }
     db.participants.push(p)

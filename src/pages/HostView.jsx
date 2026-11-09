@@ -132,11 +132,11 @@ export default function HostView() {
   if (!pin) {
     return (
       <div className="wrap part">
-        <div className="eyebrow">Concurso de Keynes · docente</div>
-        <h1>Panel docente</h1>
-        <p className="lede">Introduce el PIN docente para acceder al panel y controlar las rondas.</p>
+        <div className="eyebrow">Concurso de Keynes · panel de control</div>
+        <h1>Panel de control</h1>
+        <p className="lede">Introduce el PIN de acceso para entrar al panel y controlar las rondas.</p>
         <div className="card">
-          <label className="field-label" htmlFor="pin">PIN docente</label>
+          <label className="field-label" htmlFor="pin">PIN de acceso</label>
           <input
             type="text"
             id="pin"
@@ -183,7 +183,7 @@ export default function HostView() {
       <div className="host-head">
         <div>
           <div className="eyebrow">Concurso de Keynes · objetivo = <span style={{ fontFamily: 'var(--font-body)' }}>⅔</span> del promedio</div>
-          <h1>Panel docente</h1>
+          <h1>Panel de control</h1>
         </div>
         <button className="btn btn-dark" onClick={() => setProjector(true)}>
           Modo proyector
