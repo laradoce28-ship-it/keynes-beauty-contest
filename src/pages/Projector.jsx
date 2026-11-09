@@ -199,14 +199,14 @@ function Reveal({ round, step }) {
 
       {step === 5 && (
         <div className="proj-winner rise">
-          <div className="crown">{winners.length > 1 ? 'Empate' : 'Gana'}</div>
-          <div className="names">
+          <div className="crown">{winners.length > 1 ? `Empate entre ${winners.length}` : 'Gana'}</div>
+          <div className={`names ${winners.length <= 2 ? 'few' : winners.length <= 4 ? 'some' : 'many'}`}>
             {winners.map(w => (
               <div key={w.pid ?? w.name} className="name">{w.name}</div>
             ))}
           </div>
           <div className="detail">
-            predijo <b>{[...new Set(winners.map(w => w.value))].map(fmtNum).join(' / ')}</b>
+            predijo <b>{[...new Set(winners.map(w => w.value))].sort((a, b) => a - b).map(fmtNum).join(' / ')}</b>
             {' '}· objetivo <b className="hl">{fmt1(target)}</b>
             {' '}· diferencia {fmt1(winners[0].diff)}
           </div>

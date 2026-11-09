@@ -481,3 +481,7 @@ input.pv-num:focus { border-color: var(--accent); box-shadow: 0 0 0 5px var(--ac
 .proj-list .ar-cols { grid-template-columns: 2.4vw minmax(0, 1fr) minmax(40px, 18%) 6.2vw 6.4vw; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Ganadores: el tamaño se adapta a la cantidad (con enteros los empates son frecuentes) */
+.proj-winner .names.some .name { font-size: clamp(36px, 5vw, 96px); }
+.proj-winner .names.many { display: grid; grid-template-columns: repeat(auto-fit, minmax(22vw, 1fr)); gap: 1.2vh 3vw; max-width: 1500px; margin-inline: auto; }
+.proj-winner .names.many .name { font-size: clamp(22px, 2.6vw, 52px); line-height: 1.15; }
