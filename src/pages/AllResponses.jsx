@@ -7,7 +7,7 @@ import { fmt1, winnersOf } from '../lib/gameCalc'
 //   o Alt+clic marca la fila; aparece una nota con el resultado hipotético.
 //   Solo es un cálculo local: nunca cambia el resultado oficial.
 
-export default function AllResponses({ round, variant = 'panel' }) {
+export default function AllResponses({ round, variant = 'panel', page = 0, pages = 1, pageSize = 30 }) {
   const [sort, setSort] = useState('diff')
   const [off, setOff] = useState(() => new Set())
   const roundNumber = round?.number
@@ -51,15 +51,18 @@ export default function AllResponses({ round, variant = 'panel' }) {
 
   const isProj = variant === 'proj'
   // En el proyector: 1, 2 o 3 columnas según cuántos haya; la letra se ajusta a las filas (ver .proj-list)
-  const cols = !isProj ? 1 : rows.length <= 14 ? 1 : rows.length <= 40 ? 2 : 3
-  const perCol = Math.ceil(rows.length / cols)
+  // En el proyector con muchos participantes se muestra una página a la vez
+  const paged = isProj && pages > 1
+  const shown = paged ? rows.slice(page * pageSize, (page + 1) * pageSize) : rows
+  const cols = !isProj ? 1 : shown.length <= 14 && !paged ? 1 : 2
+  const perCol = paged ? pageSize / 2 : Math.ceil(shown.length / cols)
   const head = <div className="ar-colhead ar-cols" aria-hidden="true"><span>#</span><span>Nombre</span><span>{isProj ? 'Predicción' : 'Pred.'}</span><span>{isProj ? 'Distancia' : 'Dif.'}</span>{!isProj && <span />}</div>
 
   const list = (
     <>
       {isProj ? <div className="ar-heads" style={{ '--cols': cols }}>{Array.from({ length: cols }, (_, i) => <div key={i}>{head}</div>)}</div> : head}
       <ol className="ar-list" style={{ '--cols': cols, '--rows': perCol }}>
-        {rows.map(r => (
+        {shown.map(r => (
           <li
             key={r.key}
             className={`ar-row ar-cols${r.win ? ' win' : ''}${off.has(r.key) ? ' off' : ''}`}
@@ -88,7 +91,7 @@ export default function AllResponses({ round, variant = 'panel' }) {
   if (isProj) {
     return (
       <div className="proj-list rise" style={{ '--rows': perCol }}>
-        <div className="proj-list-title"><span>Todas las predicciones</span><span>objetivo <b>{fmt1(round.target)}</b></span></div>
+        <div className="proj-list-title"><span>Todas las predicciones{paged && <span className="proj-page"> · {page * pageSize + 1}–{page * pageSize + shown.length} de {rows.length} · página {page + 1} de {pages}</span>}</span><span>objetivo <b>{fmt1(round.target)}</b></span></div>
         {list}
       </div>
     )

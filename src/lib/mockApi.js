@@ -185,14 +185,31 @@ function simulatedValue(roundNumber, jokers) {
   return Math.max(0, Math.min(100, Math.round(v)))
 }
 
+// Para casos extremos (p. ej. 100 participantes): combina nombres y apellidos comunes,
+// incluidos nombres compuestos y dos apellidos, que son los más largos de mostrar.
+const EXTRA_FIRST = ['María José', 'Juan Pablo', 'Benjamín', 'Agustina', 'Sebastián', 'Constanza', 'Nicolás', 'Fernanda', 'Francisco', 'Javiera', 'José Tomás', 'Daniela', 'Cristóbal', 'Catalina', 'Ignacio', 'Antonella', 'Maximiliano', 'Florencia', 'Matías', 'Valentina']
+const EXTRA_LAST = ['González', 'Muñoz', 'Rojas', 'Díaz', 'Pérez', 'Soto', 'Contreras', 'Silva', 'Martínez', 'Sepúlveda', 'Morales', 'Rodríguez', 'López', 'Fuentes', 'Hernández', 'Torres', 'Araya', 'Flores', 'Espinoza', 'Valenzuela', 'Castillo', 'Tapia', 'Reyes', 'Gutiérrez', 'Castro', 'Pizarro', 'Álvarez', 'Vásquez', 'Sánchez', 'Fernández']
+function* demoPeople() {
+  yield* DEMO_PEOPLE
+  const total = EXTRA_FIRST.length * EXTRA_LAST.length // 600 combinaciones
+  for (let i = 0; i < total; i++) {
+    const idx = (i * 7) % total // 7 es coprimo con 600: recorre todas sin repetir, en orden variado
+    const f = EXTRA_FIRST[idx % EXTRA_FIRST.length]
+    const l1 = EXTRA_LAST[Math.floor(idx / EXTRA_FIRST.length)]
+    const l2 = EXTRA_LAST[(idx * 11 + 3) % EXTRA_LAST.length]
+    yield [f, i % 3 === 0 && l1 !== l2 ? `${l1} ${l2}` : l1]
+  }
+}
+
 export function demoAddStudents(n) {
   const db = load()
   const have = new Set(db.participants.map(p => p.name))
   let added = 0
-  for (const [f, l] of DEMO_PEOPLE) {
+  for (const [f, l] of demoPeople()) {
     if (added >= n) break
     const name = `${f} ${l}`
     if (have.has(name)) continue
+    have.add(name)
     db.participants.push({ id: uuid(), name, token: 'demo-' + f + l, created: now() })
     added++
   }

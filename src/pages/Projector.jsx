@@ -61,12 +61,24 @@ export default function Projector({
   const revealing = !isOpen && !!lastClosed
 
   // Paso de la revelación; vuelve a 0 cuando cambia la ronda cerrada
-  const [step, setStep] = useState(0)
+  // Paso de la revelación y página de la lista, en un solo estado para que → / ← sean consistentes
+  // aunque se pulsen muy seguido. Con muchos participantes, → recorre las páginas antes de seguir.
+  const [nav, setNav] = useState({ step: 0, page: 0 })
+  const { step, page: listPage } = nav
+  const listPages = listPageCount(lastClosed?.guesses?.length ?? 0)
   const revealKey = lastClosed?.number
-  useEffect(() => { setStep(0) }, [revealKey])
+  useEffect(() => { setNav({ step: 0, page: 0 }) }, [revealKey])
 
-  const next = useCallback(() => setStep(s => Math.min(STEPS.length - 1, s + 1)), [])
-  const prev = useCallback(() => setStep(s => Math.max(0, s - 1)), [])
+  const LIST = STEPS.indexOf('list')
+  const next = useCallback(() => setNav(({ step, page }) => {
+    if (step === LIST && page < listPages - 1) return { step, page: page + 1 }
+    return { step: Math.min(STEPS.length - 1, step + 1), page: 0 }
+  }), [listPages, LIST])
+  const prev = useCallback(() => setNav(({ step, page }) => {
+    if (step === LIST && page > 0) return { step, page: page - 1 }
+    const ns = Math.max(0, step - 1)
+    return { step: ns, page: ns === LIST ? listPages - 1 : 0 }
+  }), [listPages, LIST])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen?.()
@@ -99,7 +111,7 @@ export default function Projector({
 
       <div className="proj-stage">
         {revealing
-          ? <Reveal round={lastClosed} step={step} />
+          ? <Reveal round={lastClosed} step={step} listPage={listPage} listPages={listPages} />
           : <Collect current={current} total={total} url={participantUrl} nextRoundNum={nextRoundNum} />}
       </div>
 
@@ -176,7 +188,13 @@ function winnerGrid(n) {
   return { '--cols': cols, '--rows': Math.ceil(n / cols) }
 }
 
-function Reveal({ round, step }) {
+// Hasta 40 participantes la lista cabe en una pantalla; con más, páginas de 30 (2 columnas de 15)
+export const LIST_PAGE_SIZE = 30
+function listPageCount(n) {
+  return n > 40 ? Math.ceil(n / LIST_PAGE_SIZE) : 1
+}
+
+function Reveal({ round, step, listPage = 0, listPages = 1 }) {
   const { average, target, guesses, number } = round
   const winners = winnersOf(guesses, target)
   const avgShown = useCountUp(average, step >= 1)
@@ -216,7 +234,7 @@ function Reveal({ round, step }) {
         </div>
       )}
 
-      {step === 4 && <AllResponses round={round} variant="proj" />}
+      {step === 4 && <AllResponses round={round} variant="proj" page={listPage} pages={listPages} pageSize={LIST_PAGE_SIZE} />}
 
       {step === 5 && (
         <div className="proj-winner rise">

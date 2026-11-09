@@ -475,7 +475,7 @@ input.pv-num:focus { border-color: var(--accent); box-shadow: 0 0 0 5px var(--ac
 .proj-list .ar-val { font-size: clamp(16px, 1.5vw, 28px); }
 .proj-list .ar-rank { font-size: clamp(12px, 1vw, 18px); }
 .proj-list .ar-diff { font-size: clamp(16px, 1.25vw, 24px); color: var(--ink); }
-.proj-list .ar-cols { grid-template-columns: 2.4vw minmax(0, 1fr) 7vw 7vw; }
+.proj-list .ar-cols { grid-template-columns: 2.4vw minmax(0, 1fr) 5vw 5.6vw; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 /* Ganadores: el tamaño se adapta a la cantidad (con enteros los empates son frecuentes) */
@@ -528,3 +528,4 @@ body:has(.demo) { padding: 0; }
 /* Ganadores numerosos: grilla con letra según la cantidad de filas */
 .proj-winner .names.many { grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); --fs: min(2.6vw, calc(46vh / (var(--rows, 3) * 1.35)), calc(84vw / (var(--cols, 3) * 13))); max-width: 92vw; }
 .proj-winner .names.many .name { font-size: var(--fs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.proj-page { font-size: .8em; color: var(--muted); }

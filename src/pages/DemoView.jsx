@@ -58,8 +58,9 @@ export default function DemoView() {
     if (kind === 'empty') { /* sala vacía */ }
     if (kind === 'arriving') demoAddStudents(12)
     if (['r1open', 'r1closed', 'final', 'tie', 'jokers'].includes(kind)) demoAddStudents(28)
-    if (kind === 'full' || kind === 'massTie') demoAddStudents(99)
+    if (kind === 'full' || kind === 'massTie') demoAddStudents(35)
     if (kind === 'full') { await demoOpen(); demoVote(99); await demoClose() }
+    if (kind === 'hundred') { demoAddStudents(100); await demoOpen(); demoVote(100); await demoClose() }
     if (kind === 'massTie') { await demoOpen(); demoVoteValues([...Array(33).fill(0), 1, 2]); await demoClose() }
     if (kind === 'r1open') { await demoOpen(); demoVote(17) }
     if (kind === 'r1closed') { await demoOpen(); demoVote(28); await demoClose() }
@@ -105,11 +106,12 @@ export default function DemoView() {
           <button onClick={() => scenario('jokers')}>Con bromistas</button>
           <button onClick={() => scenario('full')}>Curso de 35</button>
           <button onClick={() => scenario('massTie')}>Empate masivo</button>
+          <button onClick={() => scenario('hundred')}>Curso de 100</button>
         </div>
         <div className="demo-group">
           <span className="demo-k">Paso a paso</span>
           <button onClick={() => { const n = demoAddStudents(5); n ? refresh() : say('Ya están todos los estudiantes de ejemplo.') }}>+5 estudiantes</button>
-          <button onClick={() => { demoAddStudents(99); refresh() }}>Completar curso</button>
+          <button onClick={() => { demoAddStudents(35); refresh() }}>Completar curso</button>
           <button className="pri" onClick={() => run(demoOpen)}>Abrir ronda</button>
           <button onClick={() => { const n = demoVote(1, { jokers }); n ? refresh() : say('No hay ronda abierta o ya respondieron todos.') }}>+1 predicción</button>
           <button onClick={() => { const n = demoVote(5, { jokers }); n ? refresh() : say('No hay ronda abierta o ya respondieron todos.') }}>+5 predicciones</button>
